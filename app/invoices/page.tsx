@@ -31,132 +31,118 @@ import {
   Plus,
   Search,
   MoreHorizontal,
-  Edit2,
-  Trash2,
   Eye,
+  Download,
+  Printer,
 } from 'lucide-react'
 
-const mockProducts = [
+const mockInvoices = [
   {
     id: 1,
-    name: 'Laptop - Dell XPS 13',
-    sku: 'DELL-XPS-13',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 125000,
-    status: 'active',
+    number: 'INV-001',
+    company: 'Global Tech Solutions',
+    invoiceDate: '2024-06-10',
+    dueDate: '2024-07-10',
+    totalAmount: 125000,
+    dueAmount: 0,
+    status: 'paid',
   },
   {
     id: 2,
-    name: 'Office Chair - Ergonomic',
-    sku: 'CHAIR-ERG-001',
-    category: 'Furniture',
-    unit: 'pcs',
-    price: 8500,
-    status: 'active',
+    number: 'INV-002',
+    company: 'Digital Innovations Ltd',
+    invoiceDate: '2024-06-09',
+    dueDate: '2024-07-09',
+    totalAmount: 85000,
+    dueAmount: 85000,
+    status: 'unpaid',
   },
   {
     id: 3,
-    name: 'Monitor - 27" LED',
-    sku: 'MON-27-LED',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 18000,
-    status: 'active',
+    number: 'INV-003',
+    company: 'Innovation Hub',
+    invoiceDate: '2024-06-08',
+    dueDate: '2024-07-08',
+    totalAmount: 325000,
+    dueAmount: 162500,
+    status: 'partially-paid',
   },
   {
     id: 4,
-    name: 'Desk - Wooden',
-    sku: 'DESK-WOD-001',
-    category: 'Furniture',
-    unit: 'pcs',
-    price: 12000,
-    status: 'inactive',
+    number: 'INV-004',
+    company: 'Tech Ventures',
+    invoiceDate: '2024-06-07',
+    dueDate: '2024-05-15',
+    totalAmount: 45000,
+    dueAmount: 45000,
+    status: 'overdue',
   },
   {
     id: 5,
-    name: 'Keyboard - Mechanical',
-    sku: 'KEY-MCH-001',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 4500,
-    status: 'active',
+    number: 'INV-005',
+    company: 'Smart Solutions',
+    invoiceDate: '2024-06-06',
+    dueDate: '2024-07-06',
+    totalAmount: 215000,
+    dueAmount: 215000,
+    status: 'draft',
   },
   {
     id: 6,
-    name: 'Mouse - Wireless',
-    sku: 'MOUSE-WLS-001',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 1200,
-    status: 'active',
-  },
-  {
-    id: 7,
-    name: 'File Cabinet - Metal',
-    sku: 'CAB-MET-001',
-    category: 'Furniture',
-    unit: 'pcs',
-    price: 6500,
-    status: 'active',
-  },
-  {
-    id: 8,
-    name: 'Printer - Laser',
-    sku: 'PRINT-LAS-001',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 35000,
-    status: 'active',
-  },
-  {
-    id: 9,
-    name: 'Whiteboard - 4x8',
-    sku: 'BOARD-WH-001',
-    category: 'Office Supplies',
-    unit: 'pcs',
-    price: 3500,
-    status: 'inactive',
-  },
-  {
-    id: 10,
-    name: 'Projector - HD',
-    sku: 'PROJ-HD-001',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 45000,
-    status: 'active',
+    number: 'INV-006',
+    company: 'Global Tech Solutions',
+    invoiceDate: '2024-06-05',
+    dueDate: '2024-06-30',
+    totalAmount: 95000,
+    dueAmount: 0,
+    status: 'paid',
   },
 ]
 
-const categories = ['All', 'Electronics', 'Furniture', 'Office Supplies']
+const statuses = ['all', 'draft', 'unpaid', 'partially-paid', 'paid', 'overdue', 'cancelled']
 
-export default function ProductsPage() {
+export default function InvoicesPage() {
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('All')
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
 
-  const filteredProducts = mockProducts.filter((product) => {
+  const filteredInvoices = mockInvoices.filter((invoice) => {
     const matchesSearch =
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.sku.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory =
-      selectedCategory === 'All' || product.category === selectedCategory
+      invoice.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.company.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus =
-      selectedStatus === 'all' || product.status === selectedStatus
+      selectedStatus === 'all' || invoice.status === selectedStatus
 
-    return matchesSearch && matchesCategory && matchesStatus
+    return matchesSearch && matchesStatus
   })
 
-  const itemsPerPage = 8
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
-  const paginatedProducts = filteredProducts.slice(
+  const itemsPerPage = 10
+  const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage)
+  const paginatedInvoices = filteredInvoices.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   )
 
-  const formatPrice = (amount) => {
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+      case 'paid':
+        return 'default'
+      case 'unpaid':
+        return 'destructive'
+      case 'partially-paid':
+        return 'secondary'
+      case 'overdue':
+        return 'destructive'
+      case 'draft':
+        return 'outline'
+      case 'cancelled':
+        return 'secondary'
+      default:
+        return 'default'
+    }
+  }
+
+  const formatAmount = (amount) => {
     return new Intl.NumberFormat('en-BD', {
       style: 'currency',
       currency: 'BDT',
@@ -164,26 +150,33 @@ export default function ProductsPage() {
     }).format(amount)
   }
 
+  const formatStatus = (status: string) => {
+    return status
+      .split('-')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  }
+
   return (
-    <DashboardLayout title="Products">
+    <DashboardLayout title="Invoices">
       <div className="space-y-6 p-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Products</h1>
+            <h1 className="text-3xl font-bold text-foreground">Invoices</h1>
             <p className="text-sm text-muted-foreground">
-              Manage your product catalog
+              Manage and track all invoices
             </p>
           </div>
           <Button className="gap-2">
             <Plus className="size-4" />
-            Add Product
+            Create Invoice
           </Button>
         </div>
 
         {/* Filters */}
         <Card className="p-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {/* Search */}
             <div className="lg:col-span-2">
               <label className="mb-2 block text-sm font-medium text-foreground">
@@ -192,7 +185,7 @@ export default function ProductsPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by name or SKU..."
+                  placeholder="Search by invoice number or company..."
                   value={searchTerm}
                   onChange={(e) => {
                     setSearchTerm(e.target.value)
@@ -201,31 +194,6 @@ export default function ProductsPage() {
                   className="pl-10"
                 />
               </div>
-            </div>
-
-            {/* Category Filter */}
-            <div>
-              <label className="mb-2 block text-sm font-medium text-foreground">
-                Category
-              </label>
-              <Select
-                value={selectedCategory}
-                onValueChange={(value) => {
-                  setSelectedCategory(value)
-                  setCurrentPage(1)
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             {/* Status Filter */}
@@ -244,22 +212,23 @@ export default function ProductsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  {statuses.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status === 'all' ? 'All Status' : formatStatus(status)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
           {/* Clear Filters */}
-          {(searchTerm || selectedCategory !== 'All' || selectedStatus !== 'all') && (
+          {(searchTerm || selectedStatus !== 'all') && (
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
                 setSearchTerm('')
-                setSelectedCategory('All')
                 setSelectedStatus('all')
                 setCurrentPage(1)
               }}
@@ -270,44 +239,52 @@ export default function ProductsPage() {
           )}
         </Card>
 
-        {/* Products Table */}
+        {/* Invoices Table */}
         <Card className="overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Product Name</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Unit</TableHead>
-                <TableHead className="text-right">Price</TableHead>
+                <TableHead>Invoice Number</TableHead>
+                <TableHead>Company</TableHead>
+                <TableHead>Invoice Date</TableHead>
+                <TableHead>Due Date</TableHead>
+                <TableHead className="text-right">Total Amount</TableHead>
+                <TableHead className="text-right">Due Amount</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedProducts.length > 0 ? (
-                paginatedProducts.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell className="font-medium">
-                      {product.name}
+              {paginatedInvoices.length > 0 ? (
+                paginatedInvoices.map((invoice) => (
+                  <TableRow key={invoice.id}>
+                    <TableCell className="font-medium font-mono">
+                      {invoice.number}
                     </TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {product.sku}
-                    </TableCell>
-                    <TableCell>{product.category}</TableCell>
-                    <TableCell>{product.unit}</TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {formatPrice(product.price)}
+                    <TableCell>{invoice.company}</TableCell>
+                    <TableCell>
+                      {new Date(invoice.invoiceDate).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={
-                          product.status === 'active'
-                            ? 'default'
-                            : 'secondary'
+                      {new Date(invoice.dueDate).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {formatAmount(invoice.totalAmount)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span
+                        className={
+                          invoice.dueAmount > 0
+                            ? 'font-semibold text-amber-600'
+                            : 'text-green-600'
                         }
                       >
-                        {product.status === 'active' ? 'Active' : 'Inactive'}
+                        {formatAmount(invoice.dueAmount)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusVariant(invoice.status)}>
+                        {formatStatus(invoice.status)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -320,15 +297,15 @@ export default function ProductsPage() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem className="gap-2">
                             <Eye className="size-4" />
-                            View
+                            View Details
                           </DropdownMenuItem>
                           <DropdownMenuItem className="gap-2">
-                            <Edit2 className="size-4" />
-                            Edit
+                            <Printer className="size-4" />
+                            Print
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2 text-red-600">
-                            <Trash2 className="size-4" />
-                            Delete
+                          <DropdownMenuItem className="gap-2">
+                            <Download className="size-4" />
+                            Download PDF
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -337,8 +314,8 @@ export default function ProductsPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center">
-                    <p className="text-muted-foreground">No products found</p>
+                  <TableCell colSpan={8} className="py-8 text-center">
+                    <p className="text-muted-foreground">No invoices found</p>
                   </TableCell>
                 </TableRow>
               )}
@@ -350,9 +327,10 @@ export default function ProductsPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredProducts.length)} to{' '}
-              {Math.min(currentPage * itemsPerPage, filteredProducts.length)} of{' '}
-              {filteredProducts.length} products
+              Showing{' '}
+              {Math.min((currentPage - 1) * itemsPerPage + 1, filteredInvoices.length)} to{' '}
+              {Math.min(currentPage * itemsPerPage, filteredInvoices.length)} of{' '}
+              {filteredInvoices.length} invoices
             </p>
             <div className="flex gap-2">
               <Button

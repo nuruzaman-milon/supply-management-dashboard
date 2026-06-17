@@ -32,152 +32,104 @@ import {
   Search,
   MoreHorizontal,
   Edit2,
+  Lock,
+  Unlock,
   Trash2,
-  Eye,
 } from 'lucide-react'
 
-const mockProducts = [
+const mockUsers = [
   {
     id: 1,
-    name: 'Laptop - Dell XPS 13',
-    sku: 'DELL-XPS-13',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 125000,
-    status: 'active',
+    name: 'Admin User',
+    email: 'admin@company.com',
+    role: 'Admin',
+    status: 'Active',
+    lastLogin: '2024-06-17',
   },
   {
     id: 2,
-    name: 'Office Chair - Ergonomic',
-    sku: 'CHAIR-ERG-001',
-    category: 'Furniture',
-    unit: 'pcs',
-    price: 8500,
-    status: 'active',
+    name: 'Sales User',
+    email: 'sales@company.com',
+    role: 'Sales Manager',
+    status: 'Active',
+    lastLogin: '2024-06-16',
   },
   {
     id: 3,
-    name: 'Monitor - 27" LED',
-    sku: 'MON-27-LED',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 18000,
-    status: 'active',
+    name: 'Accounts User',
+    email: 'accounts@company.com',
+    role: 'Accounts Officer',
+    status: 'Active',
+    lastLogin: '2024-06-15',
   },
   {
     id: 4,
-    name: 'Desk - Wooden',
-    sku: 'DESK-WOD-001',
-    category: 'Furniture',
-    unit: 'pcs',
-    price: 12000,
-    status: 'inactive',
+    name: 'Reporting User',
+    email: 'reporting@company.com',
+    role: 'Finance Manager',
+    status: 'Active',
+    lastLogin: '2024-06-14',
   },
   {
     id: 5,
-    name: 'Keyboard - Mechanical',
-    sku: 'KEY-MCH-001',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 4500,
-    status: 'active',
-  },
-  {
-    id: 6,
-    name: 'Mouse - Wireless',
-    sku: 'MOUSE-WLS-001',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 1200,
-    status: 'active',
-  },
-  {
-    id: 7,
-    name: 'File Cabinet - Metal',
-    sku: 'CAB-MET-001',
-    category: 'Furniture',
-    unit: 'pcs',
-    price: 6500,
-    status: 'active',
-  },
-  {
-    id: 8,
-    name: 'Printer - Laser',
-    sku: 'PRINT-LAS-001',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 35000,
-    status: 'active',
-  },
-  {
-    id: 9,
-    name: 'Whiteboard - 4x8',
-    sku: 'BOARD-WH-001',
-    category: 'Office Supplies',
-    unit: 'pcs',
-    price: 3500,
-    status: 'inactive',
-  },
-  {
-    id: 10,
-    name: 'Projector - HD',
-    sku: 'PROJ-HD-001',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 45000,
-    status: 'active',
+    name: 'Inactive User',
+    email: 'inactive@company.com',
+    role: 'Data Entry',
+    status: 'Inactive',
+    lastLogin: '2024-05-10',
   },
 ]
 
-const categories = ['All', 'Electronics', 'Furniture', 'Office Supplies']
+const roles = [
+  'All Roles',
+  'Admin',
+  'Sales Manager',
+  'Accounts Officer',
+  'Finance Manager',
+  'Data Entry',
+]
 
-export default function ProductsPage() {
+const statuses = ['All Status', 'Active', 'Inactive']
+
+export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('All')
-  const [selectedStatus, setSelectedStatus] = useState('all')
+  const [selectedRole, setSelectedRole] = useState('All Roles')
+  const [selectedStatus, setSelectedStatus] = useState('All Status')
   const [currentPage, setCurrentPage] = useState(1)
 
-  const filteredProducts = mockProducts.filter((product) => {
+  const filteredUsers = mockUsers.filter((user) => {
     const matchesSearch =
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.sku.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory =
-      selectedCategory === 'All' || product.category === selectedCategory
+      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesRole =
+      selectedRole === 'All Roles' || user.role === selectedRole
     const matchesStatus =
-      selectedStatus === 'all' || product.status === selectedStatus
+      selectedStatus === 'All Status' || user.status === selectedStatus
 
-    return matchesSearch && matchesCategory && matchesStatus
+    return matchesSearch && matchesRole && matchesStatus
   })
 
-  const itemsPerPage = 8
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
-  const paginatedProducts = filteredProducts.slice(
+  const itemsPerPage = 10
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage)
+  const paginatedUsers = filteredUsers.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   )
 
-  const formatPrice = (amount) => {
-    return new Intl.NumberFormat('en-BD', {
-      style: 'currency',
-      currency: 'BDT',
-      minimumFractionDigits: 0,
-    }).format(amount)
-  }
-
   return (
-    <DashboardLayout title="Products">
+    <DashboardLayout title="Users">
       <div className="space-y-6 p-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Products</h1>
+            <h1 className="text-3xl font-bold text-foreground">Users</h1>
             <p className="text-sm text-muted-foreground">
-              Manage your product catalog
+              Manage system users and permissions
             </p>
           </div>
           <Button className="gap-2">
             <Plus className="size-4" />
-            Add Product
+            Add User
           </Button>
         </div>
 
@@ -192,7 +144,7 @@ export default function ProductsPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by name or SKU..."
+                  placeholder="Search by name or email..."
                   value={searchTerm}
                   onChange={(e) => {
                     setSearchTerm(e.target.value)
@@ -203,15 +155,15 @@ export default function ProductsPage() {
               </div>
             </div>
 
-            {/* Category Filter */}
+            {/* Role Filter */}
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">
-                Category
+                Role
               </label>
               <Select
-                value={selectedCategory}
+                value={selectedRole}
                 onValueChange={(value) => {
-                  setSelectedCategory(value)
+                  setSelectedRole(value)
                   setCurrentPage(1)
                 }}
               >
@@ -219,9 +171,9 @@ export default function ProductsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
+                  {roles.map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {role}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -244,23 +196,25 @@ export default function ProductsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  {statuses.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
           {/* Clear Filters */}
-          {(searchTerm || selectedCategory !== 'All' || selectedStatus !== 'all') && (
+          {(searchTerm || selectedRole !== 'All Roles' || selectedStatus !== 'All Status') && (
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
                 setSearchTerm('')
-                setSelectedCategory('All')
-                setSelectedStatus('all')
+                setSelectedRole('All Roles')
+                setSelectedStatus('All Status')
                 setCurrentPage(1)
               }}
               className="mt-4"
@@ -270,44 +224,40 @@ export default function ProductsPage() {
           )}
         </Card>
 
-        {/* Products Table */}
+        {/* Users Table */}
         <Card className="overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Product Name</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Unit</TableHead>
-                <TableHead className="text-right">Price</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Last Login</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedProducts.length > 0 ? (
-                paginatedProducts.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell className="font-medium">
-                      {product.name}
+              {paginatedUsers.length > 0 ? (
+                paginatedUsers.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell className="text-sm">{user.email}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{user.role}</Badge>
                     </TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {product.sku}
-                    </TableCell>
-                    <TableCell>{product.category}</TableCell>
-                    <TableCell>{product.unit}</TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {formatPrice(product.price)}
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(user.lastLogin).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
                       <Badge
                         variant={
-                          product.status === 'active'
+                          user.status === 'Active'
                             ? 'default'
                             : 'secondary'
                         }
                       >
-                        {product.status === 'active' ? 'Active' : 'Inactive'}
+                        {user.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -319,16 +269,25 @@ export default function ProductsPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem className="gap-2">
-                            <Eye className="size-4" />
-                            View
+                            <Edit2 className="size-4" />
+                            Edit User
                           </DropdownMenuItem>
                           <DropdownMenuItem className="gap-2">
-                            <Edit2 className="size-4" />
-                            Edit
+                            {user.status === 'Active' ? (
+                              <>
+                                <Lock className="size-4" />
+                                Deactivate
+                              </>
+                            ) : (
+                              <>
+                                <Unlock className="size-4" />
+                                Activate
+                              </>
+                            )}
                           </DropdownMenuItem>
                           <DropdownMenuItem className="gap-2 text-red-600">
                             <Trash2 className="size-4" />
-                            Delete
+                            Delete User
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -337,8 +296,8 @@ export default function ProductsPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center">
-                    <p className="text-muted-foreground">No products found</p>
+                  <TableCell colSpan={6} className="py-8 text-center">
+                    <p className="text-muted-foreground">No users found</p>
                   </TableCell>
                 </TableRow>
               )}
@@ -350,9 +309,9 @@ export default function ProductsPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredProducts.length)} to{' '}
-              {Math.min(currentPage * itemsPerPage, filteredProducts.length)} of{' '}
-              {filteredProducts.length} products
+              Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)} to{' '}
+              {Math.min(currentPage * itemsPerPage, filteredUsers.length)} of{' '}
+              {filteredUsers.length} users
             </p>
             <div className="flex gap-2">
               <Button

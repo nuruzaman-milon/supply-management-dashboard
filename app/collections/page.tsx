@@ -31,132 +31,85 @@ import {
   Plus,
   Search,
   MoreHorizontal,
+  Eye,
   Edit2,
   Trash2,
-  Eye,
 } from 'lucide-react'
 
-const mockProducts = [
+const mockCollections = [
   {
     id: 1,
-    name: 'Laptop - Dell XPS 13',
-    sku: 'DELL-XPS-13',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 125000,
-    status: 'active',
+    number: 'COL-001',
+    company: 'Global Tech Solutions',
+    invoiceNumber: 'INV-001',
+    collectionDate: '2024-06-15',
+    amount: 125000,
+    paymentMethod: 'Bank Transfer',
   },
   {
     id: 2,
-    name: 'Office Chair - Ergonomic',
-    sku: 'CHAIR-ERG-001',
-    category: 'Furniture',
-    unit: 'pcs',
-    price: 8500,
-    status: 'active',
+    number: 'COL-002',
+    company: 'Innovation Hub',
+    invoiceNumber: 'INV-003',
+    collectionDate: '2024-06-14',
+    amount: 162500,
+    paymentMethod: 'Check',
   },
   {
     id: 3,
-    name: 'Monitor - 27" LED',
-    sku: 'MON-27-LED',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 18000,
-    status: 'active',
+    number: 'COL-003',
+    company: 'Digital Innovations Ltd',
+    invoiceNumber: 'INV-002',
+    collectionDate: '2024-06-13',
+    amount: 42500,
+    paymentMethod: 'Cash',
   },
   {
     id: 4,
-    name: 'Desk - Wooden',
-    sku: 'DESK-WOD-001',
-    category: 'Furniture',
-    unit: 'pcs',
-    price: 12000,
-    status: 'inactive',
+    number: 'COL-004',
+    company: 'Tech Ventures',
+    invoiceNumber: 'INV-004',
+    collectionDate: '2024-06-12',
+    amount: 45000,
+    paymentMethod: 'Bank Transfer',
   },
   {
     id: 5,
-    name: 'Keyboard - Mechanical',
-    sku: 'KEY-MCH-001',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 4500,
-    status: 'active',
-  },
-  {
-    id: 6,
-    name: 'Mouse - Wireless',
-    sku: 'MOUSE-WLS-001',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 1200,
-    status: 'active',
-  },
-  {
-    id: 7,
-    name: 'File Cabinet - Metal',
-    sku: 'CAB-MET-001',
-    category: 'Furniture',
-    unit: 'pcs',
-    price: 6500,
-    status: 'active',
-  },
-  {
-    id: 8,
-    name: 'Printer - Laser',
-    sku: 'PRINT-LAS-001',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 35000,
-    status: 'active',
-  },
-  {
-    id: 9,
-    name: 'Whiteboard - 4x8',
-    sku: 'BOARD-WH-001',
-    category: 'Office Supplies',
-    unit: 'pcs',
-    price: 3500,
-    status: 'inactive',
-  },
-  {
-    id: 10,
-    name: 'Projector - HD',
-    sku: 'PROJ-HD-001',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 45000,
-    status: 'active',
+    number: 'COL-005',
+    company: 'Smart Solutions',
+    invoiceNumber: 'INV-005',
+    collectionDate: '2024-06-11',
+    amount: 107500,
+    paymentMethod: 'Check',
   },
 ]
 
-const categories = ['All', 'Electronics', 'Furniture', 'Office Supplies']
+const paymentMethods = ['All', 'Bank Transfer', 'Check', 'Cash', 'Card']
 
-export default function ProductsPage() {
+export default function CollectionsPage() {
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('All')
-  const [selectedStatus, setSelectedStatus] = useState('all')
+  const [selectedMethod, setSelectedMethod] = useState('All')
   const [currentPage, setCurrentPage] = useState(1)
 
-  const filteredProducts = mockProducts.filter((product) => {
+  const filteredCollections = mockCollections.filter((collection) => {
     const matchesSearch =
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.sku.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory =
-      selectedCategory === 'All' || product.category === selectedCategory
-    const matchesStatus =
-      selectedStatus === 'all' || product.status === selectedStatus
+      collection.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      collection.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      collection.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesMethod =
+      selectedMethod === 'All' || collection.paymentMethod === selectedMethod
 
-    return matchesSearch && matchesCategory && matchesStatus
+    return matchesSearch && matchesMethod
   })
 
-  const itemsPerPage = 8
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
-  const paginatedProducts = filteredProducts.slice(
+  const itemsPerPage = 10
+  const totalPages = Math.ceil(filteredCollections.length / itemsPerPage)
+  const paginatedCollections = filteredCollections.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   )
 
-  const formatPrice = (amount) => {
+  const formatAmount = (amount) => {
     return new Intl.NumberFormat('en-BD', {
       style: 'currency',
       currency: 'BDT',
@@ -165,25 +118,25 @@ export default function ProductsPage() {
   }
 
   return (
-    <DashboardLayout title="Products">
+    <DashboardLayout title="Collections">
       <div className="space-y-6 p-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Products</h1>
+            <h1 className="text-3xl font-bold text-foreground">Collections</h1>
             <p className="text-sm text-muted-foreground">
-              Manage your product catalog
+              Track all payment collections and receipts
             </p>
           </div>
           <Button className="gap-2">
             <Plus className="size-4" />
-            Add Product
+            New Collection
           </Button>
         </div>
 
         {/* Filters */}
         <Card className="p-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {/* Search */}
             <div className="lg:col-span-2">
               <label className="mb-2 block text-sm font-medium text-foreground">
@@ -192,7 +145,7 @@ export default function ProductsPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by name or SKU..."
+                  placeholder="Search by collection or invoice number..."
                   value={searchTerm}
                   onChange={(e) => {
                     setSearchTerm(e.target.value)
@@ -203,15 +156,15 @@ export default function ProductsPage() {
               </div>
             </div>
 
-            {/* Category Filter */}
+            {/* Payment Method Filter */}
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">
-                Category
+                Payment Method
               </label>
               <Select
-                value={selectedCategory}
+                value={selectedMethod}
                 onValueChange={(value) => {
-                  setSelectedCategory(value)
+                  setSelectedMethod(value)
                   setCurrentPage(1)
                 }}
               >
@@ -219,48 +172,24 @@ export default function ProductsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
+                  {paymentMethods.map((method) => (
+                    <SelectItem key={method} value={method}>
+                      {method}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Status Filter */}
-            <div>
-              <label className="mb-2 block text-sm font-medium text-foreground">
-                Status
-              </label>
-              <Select
-                value={selectedStatus}
-                onValueChange={(value) => {
-                  setSelectedStatus(value)
-                  setCurrentPage(1)
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
           {/* Clear Filters */}
-          {(searchTerm || selectedCategory !== 'All' || selectedStatus !== 'all') && (
+          {(searchTerm || selectedMethod !== 'All') && (
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
                 setSearchTerm('')
-                setSelectedCategory('All')
-                setSelectedStatus('all')
+                setSelectedMethod('All')
                 setCurrentPage(1)
               }}
               className="mt-4"
@@ -270,44 +199,40 @@ export default function ProductsPage() {
           )}
         </Card>
 
-        {/* Products Table */}
+        {/* Collections Table */}
         <Card className="overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Product Name</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Unit</TableHead>
-                <TableHead className="text-right">Price</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Collection Number</TableHead>
+                <TableHead>Company</TableHead>
+                <TableHead>Invoice Number</TableHead>
+                <TableHead>Collection Date</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+                <TableHead>Payment Method</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedProducts.length > 0 ? (
-                paginatedProducts.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell className="font-medium">
-                      {product.name}
+              {paginatedCollections.length > 0 ? (
+                paginatedCollections.map((collection) => (
+                  <TableRow key={collection.id}>
+                    <TableCell className="font-medium font-mono">
+                      {collection.number}
                     </TableCell>
+                    <TableCell>{collection.company}</TableCell>
                     <TableCell className="font-mono text-sm">
-                      {product.sku}
-                    </TableCell>
-                    <TableCell>{product.category}</TableCell>
-                    <TableCell>{product.unit}</TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {formatPrice(product.price)}
+                      {collection.invoiceNumber}
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={
-                          product.status === 'active'
-                            ? 'default'
-                            : 'secondary'
-                        }
-                      >
-                        {product.status === 'active' ? 'Active' : 'Inactive'}
+                      {new Date(collection.collectionDate).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold text-green-600">
+                      {formatAmount(collection.amount)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {collection.paymentMethod}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -320,7 +245,7 @@ export default function ProductsPage() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem className="gap-2">
                             <Eye className="size-4" />
-                            View
+                            View Details
                           </DropdownMenuItem>
                           <DropdownMenuItem className="gap-2">
                             <Edit2 className="size-4" />
@@ -338,7 +263,9 @@ export default function ProductsPage() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={7} className="py-8 text-center">
-                    <p className="text-muted-foreground">No products found</p>
+                    <p className="text-muted-foreground">
+                      No collections found
+                    </p>
                   </TableCell>
                 </TableRow>
               )}
@@ -350,9 +277,13 @@ export default function ProductsPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredProducts.length)} to{' '}
-              {Math.min(currentPage * itemsPerPage, filteredProducts.length)} of{' '}
-              {filteredProducts.length} products
+              Showing{' '}
+              {Math.min(
+                (currentPage - 1) * itemsPerPage + 1,
+                filteredCollections.length
+              )}{' '}
+              to {Math.min(currentPage * itemsPerPage, filteredCollections.length)} of{' '}
+              {filteredCollections.length} collections
             </p>
             <div className="flex gap-2">
               <Button

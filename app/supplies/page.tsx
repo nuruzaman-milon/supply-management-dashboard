@@ -1,154 +1,357 @@
+'use client'
+
+import { useState } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Plus, Edit2, Trash2, Boxes } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Plus,
+  Search,
+  MoreHorizontal,
+  Edit2,
+  Eye,
+  FileText,
+} from 'lucide-react'
+
+const mockSupplies = [
+  {
+    id: 1,
+    number: 'SUP-001',
+    date: '2024-06-10',
+    company: 'Global Tech Solutions',
+    amount: 125000,
+    invoiceGenerated: 'Yes',
+    createdBy: 'Admin User',
+  },
+  {
+    id: 2,
+    number: 'SUP-002',
+    date: '2024-06-09',
+    company: 'Digital Innovations Ltd',
+    amount: 85000,
+    invoiceGenerated: 'No',
+    createdBy: 'Sales User',
+  },
+  {
+    id: 3,
+    number: 'SUP-003',
+    date: '2024-06-08',
+    company: 'Innovation Hub',
+    amount: 325000,
+    invoiceGenerated: 'Yes',
+    createdBy: 'Admin User',
+  },
+  {
+    id: 4,
+    number: 'SUP-004',
+    date: '2024-06-07',
+    company: 'Tech Ventures',
+    amount: 45000,
+    invoiceGenerated: 'Yes',
+    createdBy: 'Sales User',
+  },
+  {
+    id: 5,
+    number: 'SUP-005',
+    date: '2024-06-06',
+    company: 'Smart Solutions',
+    amount: 215000,
+    invoiceGenerated: 'No',
+    createdBy: 'Accounts User',
+  },
+]
 
 export default function SuppliesPage() {
-  const supplies = [
-    {
-      id: 'SUP001',
-      product: 'Stainless Steel Bolts',
-      quantity: 5000,
-      unit: 'pieces',
-      supplier: 'Metal Supply Co',
-      status: 'Available',
-    },
-    {
-      id: 'SUP002',
-      product: 'Rubber Gaskets',
-      quantity: 1200,
-      unit: 'pieces',
-      supplier: 'Industrial Rubber',
-      status: 'Available',
-    },
-    {
-      id: 'SUP003',
-      product: 'Copper Wiring',
-      quantity: 250,
-      unit: 'meters',
-      supplier: 'Electric Supply',
-      status: 'Low',
-    },
-    {
-      id: 'SUP004',
-      product: 'Plastic Containers',
-      quantity: 0,
-      unit: 'units',
-      supplier: 'Packaging Plus',
-      status: 'Out',
-    },
-    {
-      id: 'SUP005',
-      product: 'Lubricating Oil',
-      quantity: 750,
-      unit: 'liters',
-      supplier: 'Oil Distributors',
-      status: 'Available',
-    },
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedCompany, setSelectedCompany] = useState('all')
+  const [invoiceStatus, setInvoiceStatus] = useState('all')
+  const [currentPage, setCurrentPage] = useState(1)
+
+  const companies = [
+    'All',
+    ...new Set(mockSupplies.map((s) => s.company)),
   ]
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'destructive'> = {
-      Available: 'default',
-      Low: 'secondary',
-      Out: 'destructive',
-    }
-    return variants[status] || 'default'
+  const filteredSupplies = mockSupplies.filter((supply) => {
+    const matchesSearch =
+      supply.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      supply.company.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesCompany =
+      selectedCompany === 'all' || supply.company === selectedCompany
+    const matchesInvoice =
+      invoiceStatus === 'all' ||
+      (invoiceStatus === 'generated' && supply.invoiceGenerated === 'Yes') ||
+      (invoiceStatus === 'pending' && supply.invoiceGenerated === 'No')
+
+    return matchesSearch && matchesCompany && matchesInvoice
+  })
+
+  const itemsPerPage = 10
+  const totalPages = Math.ceil(filteredSupplies.length / itemsPerPage)
+  const paginatedSupplies = filteredSupplies.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  )
+
+  const formatAmount = (amount) => {
+    return new Intl.NumberFormat('en-BD', {
+      style: 'currency',
+      currency: 'BDT',
+      minimumFractionDigits: 0,
+    }).format(amount)
   }
 
   return (
-    <DashboardLayout
-      title="Supplies"
-      breadcrumbs={[{ label: 'Supply Management', href: '#' }, { label: 'Supplies', active: true }]}
-    >
+    <DashboardLayout title="Supplies">
       <div className="space-y-6 p-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Supply Inventory</h2>
+            <h1 className="text-3xl font-bold text-foreground">Supplies</h1>
             <p className="text-sm text-muted-foreground">
-              Track and manage your supply levels across all warehouses
+              Manage supply orders and generate invoices
             </p>
           </div>
           <Button className="gap-2">
             <Plus className="size-4" />
-            Add Supply
+            New Supply
           </Button>
         </div>
 
-        {/* Supplies Table */}
+        {/* Filters */}
         <Card className="p-6">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                    ID
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                    Product
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                    Quantity
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                    Supplier
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-right text-sm font-semibold text-foreground">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {supplies.map((supply) => (
-                  <tr
-                    key={supply.id}
-                    className="border-b border-border hover:bg-secondary transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      <span className="font-mono text-sm font-medium text-foreground">
-                        {supply.id}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <Boxes className="size-4 text-primary" />
-                        <span className="font-medium text-foreground">
-                          {supply.product}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-foreground">
-                      {supply.quantity} {supply.unit}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {supply.supplier}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={getStatusBadge(supply.status)}>
-                        {supply.status}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button className="inline-flex items-center justify-center rounded-lg hover:bg-secondary p-2 transition-colors">
-                          <Edit2 className="size-4 text-muted-foreground" />
-                        </button>
-                        <button className="inline-flex items-center justify-center rounded-lg hover:bg-secondary p-2 transition-colors">
-                          <Trash2 className="size-4 text-destructive" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Search */}
+            <div className="lg:col-span-2">
+              <label className="mb-2 block text-sm font-medium text-foreground">
+                Search
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by supply number or company..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {/* Company Filter */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-foreground">
+                Company
+              </label>
+              <Select
+                value={selectedCompany}
+                onValueChange={(value) => {
+                  setSelectedCompany(value)
+                  setCurrentPage(1)
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Companies</SelectItem>
+                  {companies.slice(1).map((company) => (
+                    <SelectItem key={company} value={company}>
+                      {company}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Invoice Status Filter */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-foreground">
+                Invoice Status
+              </label>
+              <Select
+                value={invoiceStatus}
+                onValueChange={(value) => {
+                  setInvoiceStatus(value)
+                  setCurrentPage(1)
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="generated">Generated</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
+          {/* Clear Filters */}
+          {(searchTerm || selectedCompany !== 'all' || invoiceStatus !== 'all') && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSearchTerm('')
+                setSelectedCompany('all')
+                setInvoiceStatus('all')
+                setCurrentPage(1)
+              }}
+              className="mt-4"
+            >
+              Clear Filters
+            </Button>
+          )}
         </Card>
+
+        {/* Supplies Table */}
+        <Card className="overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Supply Number</TableHead>
+                <TableHead>Supply Date</TableHead>
+                <TableHead>Company</TableHead>
+                <TableHead className="text-right">Total Amount</TableHead>
+                <TableHead>Invoice Status</TableHead>
+                <TableHead>Created By</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedSupplies.length > 0 ? (
+                paginatedSupplies.map((supply) => (
+                  <TableRow key={supply.id}>
+                    <TableCell className="font-medium font-mono">
+                      {supply.number}
+                    </TableCell>
+                    <TableCell>
+                      {new Date(supply.date).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>{supply.company}</TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {formatAmount(supply.amount)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          supply.invoiceGenerated === 'Yes'
+                            ? 'default'
+                            : 'secondary'
+                        }
+                      >
+                        {supply.invoiceGenerated === 'Yes'
+                          ? 'Generated'
+                          : 'Pending'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {supply.createdBy}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem className="gap-2">
+                            <Eye className="size-4" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="gap-2">
+                            <Edit2 className="size-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          {supply.invoiceGenerated === 'No' && (
+                            <DropdownMenuItem className="gap-2">
+                              <FileText className="size-4" />
+                              Generate Invoice
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="py-8 text-center">
+                    <p className="text-muted-foreground">No supplies found</p>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </Card>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Showing{' '}
+              {Math.min((currentPage - 1) * itemsPerPage + 1, filteredSupplies.length)} to{' '}
+              {Math.min(currentPage * itemsPerPage, filteredSupplies.length)} of{' '}
+              {filteredSupplies.length} supplies
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(currentPage - 1)}
+              >
+                Previous
+              </Button>
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <Button
+                  key={i + 1}
+                  variant={currentPage === i + 1 ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setCurrentPage(i + 1)}
+                >
+                  {i + 1}
+                </Button>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(currentPage + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   )
