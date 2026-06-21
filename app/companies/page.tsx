@@ -28,6 +28,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
+  AddCompanyModal,
+  EditCompanyModal,
+  ViewCompanyModal,
+  DeleteCompanyModal,
+} from '@/components/company-modals'
+import {
   Plus,
   Search,
   MoreHorizontal,
@@ -168,14 +174,22 @@ const mockCompanies: Company[] = [
 const ITEMS_PER_PAGE = 5
 
 export default function CompaniesPage() {
+  const [companies, setCompanies] = useState<Company[]>(mockCompanies)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [isLoading, setIsLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
 
+  // Modal states
+  const [addModalOpen, setAddModalOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [viewModalOpen, setViewModalOpen] = useState(false)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
+
   // Filter companies
   const filteredCompanies = useMemo(() => {
-    return mockCompanies.filter((company) => {
+    return companies.filter((company) => {
       const matchesSearch =
         company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         company.contactPerson.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -186,7 +200,7 @@ export default function CompaniesPage() {
 
       return matchesSearch && matchesStatus
     })
-  }, [searchQuery, statusFilter])
+  }, [companies, searchQuery, statusFilter])
 
   // Pagination
   const totalPages = Math.ceil(filteredCompanies.length / ITEMS_PER_PAGE)
@@ -221,12 +235,78 @@ export default function CompaniesPage() {
   }
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-BD', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'BDT',
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
     }).format(value)
+  }
+
+  // Handle Add Company
+  const handleAddCompany = (data: Company) => {
+    setIsLoading(true)
+    // Simulate API call
+    setTimeout(() => {
+      const newCompany: Company = {
+        ...data,
+        id: (companies.length + 1).toString(),
+        totalRevenue: 0,
+        totalDue: 0,
+        createdAt: new Date().toISOString().split('T')[0],
+      }
+      setCompanies([...companies, newCompany])
+      setIsLoading(false)
+      setAddModalOpen(false)
+    }, 500)
+  }
+
+  // Handle Edit Company
+  const handleEditCompany = (data: Company) => {
+    setIsLoading(true)
+    // Simulate API call
+    setTimeout(() => {
+      setCompanies(
+        companies.map((c) =>
+          c.id === data.id
+            ? { ...c, ...data }
+            : c
+        )
+      )
+      setIsLoading(false)
+      setEditModalOpen(false)
+      setSelectedCompany(null)
+    }, 500)
+  }
+
+  // Handle Delete Company
+  const handleDeleteCompany = () => {
+    if (!selectedCompany) return
+    setIsLoading(true)
+    // Simulate API call
+    setTimeout(() => {
+      setCompanies(companies.filter((c) => c.id !== selectedCompany.id))
+      setIsLoading(false)
+      setDeleteModalOpen(false)
+      setSelectedCompany(null)
+    }, 500)
+  }
+
+  // Handle View Details
+  const handleViewDetails = (company: Company) => {
+    setSelectedCompany(company)
+    setViewModalOpen(true)
+  }
+
+  // Handle Edit
+  const handleEdit = (company: Company) => {
+    setSelectedCompany(company)
+    setEditModalOpen(true)
+  }
+
+  // Handle Delete
+  const handleDelete = (company: Company) => {
+    setSelectedCompany(company)
+    setDeleteModalOpen(true)
   }
 
   return (
@@ -243,7 +323,7 @@ export default function CompaniesPage() {
               Manage all company profiles and information ({filteredCompanies.length})
             </p>
           </div>
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={() => setAddModalOpen(true)}>
             <Plus className="size-4" />
             Add Company
           </Button>
@@ -412,16 +492,23 @@ export default function CompaniesPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem className="gap-2 cursor-pointer">
+                              <DropdownMenuItem
+                                className="gap-2 cursor-pointer"
+                                onClick={() => handleViewDetails(company)}
+                              >
                                 <Eye className="size-4" />
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="gap-2 cursor-pointer">
+                              <DropdownMenuItem
+                                className="gap-2 cursor-pointer"
+                                onClick={() => handleEdit(company)}
+                              >
                                 <Edit className="size-4" />
                                 Edit Company
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="gap-2 cursor-pointer text-destructive focus:text-destructive"
+                                onClick={() => handleDelete(company)}
                               >
                                 <Trash2 className="size-4" />
                                 Delete Company
@@ -482,6 +569,36 @@ export default function CompaniesPage() {
           )}
         </Card>
       </div>
+
+      {/* Modals */}
+      <AddCompanyModal
+        open={addModalOpen}
+        onOpenChange={setAddModalOpen}
+        onSubmit={handleAddCompany}
+        isLoading={isLoading}
+      />
+
+      <EditCompanyModal
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        company={selectedCompany}
+        onSubmit={handleEditCompany}
+        isLoading={isLoading}
+      />
+
+      <ViewCompanyModal
+        open={viewModalOpen}
+        onOpenChange={setViewModalOpen}
+        company={selectedCompany}
+      />
+
+      <DeleteCompanyModal
+        open={deleteModalOpen}
+        onOpenChange={setDeleteModalOpen}
+        company={selectedCompany}
+        onConfirm={handleDeleteCompany}
+        isLoading={isLoading}
+      />
     </DashboardLayout>
   )
 }
