@@ -1,6 +1,5 @@
-import { DashboardLayout } from '@/components/dashboard-layout'
-import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { DashboardLayout } from "@/components/dashboard-layout";
+import { Card } from "@/components/ui/card";
 import {
   Building2,
   Package,
@@ -12,76 +11,76 @@ import {
   BarChart3,
   ArrowUpRight,
   ArrowDownLeft,
-} from 'lucide-react'
-import { RevenueTrendChart } from '@/components/charts/revenue-trend'
-import { CollectionTrendChart } from '@/components/charts/collection-trend'
-import { RevenueCollectionComparisonChart } from '@/components/charts/revenue-collection-comparison'
-import { RecentSuppliesTable } from '@/components/tables/recent-supplies'
-import { RecentInvoicesTable } from '@/components/tables/recent-invoices'
-import { RecentCollectionsTable } from '@/components/tables/recent-collections'
-import { TopRevenueCompaniesWidget } from '@/components/widgets/top-revenue-companies'
-import { UpcomingDuePaymentsWidget } from '@/components/widgets/upcoming-due-payments'
-import { OverdueInvoicesWidget } from '@/components/widgets/overdue-invoices'
+} from "lucide-react";
+import { RevenueTrendChart } from "@/components/charts/revenue-trend";
+import { CollectionTrendChart } from "@/components/charts/collection-trend";
+import { RevenueCollectionComparisonChart } from "@/components/charts/revenue-collection-comparison";
+import { RecentSuppliesTable } from "@/components/tables/recent-supplies";
+import { RecentInvoicesTable } from "@/components/tables/recent-invoices";
+import { RecentCollectionsTable } from "@/components/tables/recent-collections";
+import { TopRevenueCompaniesWidget } from "@/components/widgets/top-revenue-companies";
+import { UpcomingDuePaymentsWidget } from "@/components/widgets/upcoming-due-payments";
+import { OverdueInvoicesWidget } from "@/components/widgets/overdue-invoices";
 
 export default function DashboardPage() {
   const kpiStats = [
     {
-      label: 'Total Companies',
-      value: '28',
+      label: "Total Companies",
+      value: "28",
       icon: Building2,
-      change: '+4.2%',
+      change: "+4.2%",
       positive: true,
     },
     {
-      label: 'Total Products',
-      value: '1,243',
+      label: "Total Products",
+      value: "1,243",
       icon: Package,
-      change: '+12.5%',
+      change: "+12.5%",
       positive: true,
     },
     {
-      label: 'Total Supplies',
-      value: '8,932',
+      label: "Total Supplies",
+      value: "8,932",
       icon: Zap,
-      change: '+18.3%',
+      change: "+18.3%",
       positive: true,
     },
     {
-      label: 'Total Revenue',
-      value: '$628,230',
+      label: "Total Revenue",
+      value: "$628,230",
       icon: DollarSign,
-      change: '+24.8%',
+      change: "+24.8%",
       positive: true,
     },
     {
-      label: 'Monthly Revenue',
-      value: '$89,000',
+      label: "Monthly Revenue",
+      value: "$89,000",
       icon: TrendingUp,
-      change: '+15.6%',
+      change: "+15.6%",
       positive: true,
     },
     {
-      label: 'Total Collections',
-      value: '$542,100',
+      label: "Total Collections",
+      value: "$542,100",
       icon: CreditCard,
-      change: '+19.2%',
+      change: "+19.2%",
       positive: true,
     },
     {
-      label: 'Outstanding Due',
-      value: '$86,130',
+      label: "Outstanding Due",
+      value: "$86,130",
       icon: AlertCircle,
-      change: '+5.1%',
+      change: "+5.1%",
       positive: false,
     },
     {
-      label: 'Overdue Amount',
-      value: '$47,560',
+      label: "Overdue Amount",
+      value: "$47,560",
       icon: BarChart3,
-      change: '+3.7%',
+      change: "+3.7%",
       positive: false,
     },
-  ]
+  ];
 
   return (
     <DashboardLayout title="Dashboard">
@@ -89,7 +88,7 @@ export default function DashboardPage() {
         {/* KPI Cards Grid */}
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {kpiStats.map((stat, index) => {
-            const Icon = stat.icon
+            const Icon = stat.icon;
             return (
               <Card
                 key={index}
@@ -129,7 +128,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </Card>
-            )
+            );
           })}
         </div>
 
@@ -164,7 +163,10 @@ export default function DashboardPage() {
               <h3 className="text-lg font-semibold text-foreground">
                 Recent Supplies
               </h3>
-              <a href="/supplies" className="text-sm font-medium text-primary hover:underline">
+              <a
+                href="/supplies"
+                className="text-sm font-medium text-primary hover:underline"
+              >
                 View all
               </a>
             </div>
@@ -176,7 +178,10 @@ export default function DashboardPage() {
               <h3 className="text-lg font-semibold text-foreground">
                 Recent Invoices
               </h3>
-              <a href="#" className="text-sm font-medium text-primary hover:underline">
+              <a
+                href="#"
+                className="text-sm font-medium text-primary hover:underline"
+              >
                 View all
               </a>
             </div>
@@ -188,7 +193,10 @@ export default function DashboardPage() {
               <h3 className="text-lg font-semibold text-foreground">
                 Recent Collections
               </h3>
-              <a href="#" className="text-sm font-medium text-primary hover:underline">
+              <a
+                href="#"
+                className="text-sm font-medium text-primary hover:underline"
+              >
                 View all
               </a>
             </div>
@@ -204,5 +212,5 @@ export default function DashboardPage() {
         </div>
       </div>
     </DashboardLayout>
-  )
+  );
 }

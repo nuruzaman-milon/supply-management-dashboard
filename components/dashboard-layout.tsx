@@ -1,45 +1,52 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Sidebar } from './sidebar'
-import { TopNav } from './top-nav'
-import { BreadcrumbNav, type BreadcrumbNav as BreadcrumbNavType } from './breadcrumb-nav'
+import { useEffect, useState } from "react";
+import { Sidebar } from "./sidebar";
+import { TopNav } from "./top-nav";
+import { BreadcrumbNav } from "./breadcrumb-nav";
 
 interface DashboardLayoutProps {
-  children: React.ReactNode
-  title?: string
-  breadcrumbs?: Parameters<typeof BreadcrumbNav>[0]['items']
+  children: React.ReactNode;
+  title?: string;
+  breadcrumbs?: Parameters<typeof BreadcrumbNav>[0]["items"];
 }
 
 export function DashboardLayout({
   children,
-  title = 'Dashboard',
+  title = "Dashboard",
   breadcrumbs = [],
 }: DashboardLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setSidebarOpen(true);
+      } else {
+        setSidebarOpen(false);
+      }
+    };
+
+    handleResize();
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
 
   return (
-    <div className="flex h-screen bg-background">
-      {/* Sidebar */}
+    <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} />
 
-      {/* Main content */}
-      <div className="flex flex-1 flex-col overflow-hidden md:ml-0">
-        {/* Top Navigation */}
-        <TopNav title={title} />
+      <div className="flex h-screen flex-1 flex-col overflow-hidden">
+        <TopNav title={title} onMenuClick={() => setSidebarOpen(true)} />
 
-        {/* Breadcrumb */}
-        {breadcrumbs.length > 0 && (
-          <BreadcrumbNav items={breadcrumbs} />
-        )}
+        {breadcrumbs.length > 0 && <BreadcrumbNav items={breadcrumbs} />}
 
-        {/* Content Area */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="h-full">
-            {children}
-          </div>
-        </main>
+        <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
-  )
+  );
 }
