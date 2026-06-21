@@ -6,16 +6,6 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
 import {
   Table,
   TableBody,
@@ -31,9 +21,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
+  AddCategoryModal,
+  EditCategoryModal,
+  ViewCategoryModal,
+  DeleteCategoryModal,
+} from '@/components/category-modals'
+import {
   Plus,
   Search,
   MoreHorizontal,
+  Eye,
   Edit2,
   Trash2,
 } from 'lucide-react'
@@ -65,57 +62,84 @@ const mockCategories = [
   },
 ]
 
+interface Category {
+  id: string | number
+  name: string
+  description: string
+  productCount: number
+  status: string
+  createdDate: string
+}
+
 export default function CategoriesPage() {
   const [searchTerm, setSearchTerm] = useState('')
-  const [categories, setCategories] = useState(mockCategories)
-  const [isAddOpen, setIsAddOpen] = useState(false)
-  const [isEditOpen, setIsEditOpen] = useState(false)
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [formData, setFormData] = useState({ name: '', description: '' })
+  const [categories, setCategories] = useState<Category[]>(mockCategories as Category[])
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Modal states
+  const [addModalOpen, setAddModalOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [viewModalOpen, setViewModalOpen] = useState(false)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
 
   const filteredCategories = categories.filter((cat) =>
     cat.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const handleAddCategory = () => {
-    if (formData.name.trim()) {
-      const newCategory = {
-        id: Math.max(...categories.map((c) => c.id), 0) + 1,
-        name: formData.name,
-        description: formData.description,
-        productCount: 0,
-        status: 'active',
-        createdDate: new Date().toISOString().split('T')[0],
-      }
-      setCategories([...categories, newCategory])
-      setFormData({ name: '', description: '' })
-      setIsAddOpen(false)
-    }
+  // Handle Add Category
+  const handleAddCategory = (data: Category) => {
+    setIsLoading(true)
+    setTimeout(() => {
+      setCategories([...categories, data])
+      setIsLoading(false)
+      setAddModalOpen(false)
+    }, 500)
   }
 
-  const handleEditCategory = () => {
-    if (editingId && formData.name.trim()) {
+  // Handle Edit Category
+  const handleEditCategory = (data: Category) => {
+    setIsLoading(true)
+    setTimeout(() => {
       setCategories(
-        categories.map((cat) =>
-          cat.id === editingId
-            ? { ...cat, name: formData.name, description: formData.description }
-            : cat
+        categories.map((c) =>
+          c.id === data.id ? data : c
         )
       )
-      setFormData({ name: '', description: '' })
-      setEditingId(null)
-      setIsEditOpen(false)
-    }
+      setIsLoading(false)
+      setEditModalOpen(false)
+      setSelectedCategory(null)
+    }, 500)
   }
 
-  const handleDeleteCategory = (id: number) => {
-    setCategories(categories.filter((cat) => cat.id !== id))
+  // Handle Delete Category
+  const handleDeleteCategory = () => {
+    if (!selectedCategory) return
+    setIsLoading(true)
+    setTimeout(() => {
+      setCategories(categories.filter((c) => c.id !== selectedCategory.id))
+      setIsLoading(false)
+      setDeleteModalOpen(false)
+      setSelectedCategory(null)
+    }, 500)
   }
 
-  const openEditDialog = (category) => {
-    setEditingId(category.id)
-    setFormData({ name: category.name, description: category.description })
-    setIsEditOpen(true)
+  // Handle View Details
+  const handleViewDetails = (category: Category) => {
+    setSelectedCategory(category)
+    setViewModalOpen(true)
+  }
+
+  // Handle Edit
+  const handleEdit = (category: Category) => {
+    setSelectedCategory(category)
+    setEditModalOpen(true)
+  }
+
+  // Handle Delete
+  const handleDelete = (category: Category) => {
+    setSelectedCategory(category)
+    setDeleteModalOpen(true)
   }
 
   return (
@@ -131,58 +155,10 @@ export default function CategoriesPage() {
               Manage product categories and organize your inventory
             </p>
           </div>
-          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="size-4" />
-                Add Category
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Category</DialogTitle>
-                <DialogDescription>
-                  Create a new product category
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="cat-name">Category Name</Label>
-                  <Input
-                    id="cat-name"
-                    placeholder="e.g., Electronics"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="cat-desc">Description</Label>
-                  <Textarea
-                    id="cat-desc"
-                    placeholder="Category description..."
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        description: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="flex justify-end gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsAddOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button onClick={handleAddCategory}>Add Category</Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button className="gap-2" onClick={() => setAddModalOpen(true)}>
+            <Plus className="size-4" />
+            Add Category
+          </Button>
         </div>
 
         {/* Search */}
@@ -239,15 +215,22 @@ export default function CategoriesPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
-                            className="gap-2"
-                            onClick={() => openEditDialog(category)}
+                            className="gap-2 cursor-pointer"
+                            onClick={() => handleViewDetails(category)}
+                          >
+                            <Eye className="size-4" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="gap-2 cursor-pointer"
+                            onClick={() => handleEdit(category)}
                           >
                             <Edit2 className="size-4" />
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            className="gap-2 text-red-600"
-                            onClick={() => handleDeleteCategory(category.id)}
+                            className="gap-2 cursor-pointer text-destructive focus:text-destructive"
+                            onClick={() => handleDelete(category)}
                           >
                             <Trash2 className="size-4" />
                             Delete
@@ -270,57 +253,35 @@ export default function CategoriesPage() {
           </Table>
         </Card>
 
-        {/* Edit Category Dialog */}
-        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Category</DialogTitle>
-              <DialogDescription>
-                Update the category details
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="edit-cat-name">Category Name</Label>
-                <Input
-                  id="edit-cat-name"
-                  placeholder="e.g., Electronics"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-cat-desc">Description</Label>
-                <Textarea
-                  id="edit-cat-desc"
-                  placeholder="Category description..."
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      description: e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div className="flex justify-end gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setIsEditOpen(false)
-                    setEditingId(null)
-                    setFormData({ name: '', description: '' })
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleEditCategory}>Update Category</Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+      {/* Modals */}
+      <AddCategoryModal
+        open={addModalOpen}
+        onOpenChange={setAddModalOpen}
+        onSubmit={handleAddCategory}
+        isLoading={isLoading}
+      />
+
+      <EditCategoryModal
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        category={selectedCategory}
+        onSubmit={handleEditCategory}
+        isLoading={isLoading}
+      />
+
+      <ViewCategoryModal
+        open={viewModalOpen}
+        onOpenChange={setViewModalOpen}
+        category={selectedCategory}
+      />
+
+      <DeleteCategoryModal
+        open={deleteModalOpen}
+        onOpenChange={setDeleteModalOpen}
+        category={selectedCategory}
+        onConfirm={handleDeleteCategory}
+        isLoading={isLoading}
+      />
       </div>
     </DashboardLayout>
   )
