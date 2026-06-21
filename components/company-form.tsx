@@ -57,86 +57,94 @@ export function CompanyForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid gap-6 sm:grid-cols-2">
         {/* Company Name */}
-        <div className="space-y-2">
-          <Label htmlFor="name" className="text-sm font-medium">
-            Company Name
+        <div className="space-y-2.5">
+          <Label htmlFor="name" className="text-sm font-semibold text-foreground">
+            Company Name <span className="text-destructive">*</span>
           </Label>
           <Input
             id="name"
             name="name"
-            placeholder="Enter company name"
+            placeholder="e.g., Global Tech Solutions"
             defaultValue={company?.name || ''}
+            className="border-2 border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
             required
           />
         </div>
 
         {/* Contact Person */}
-        <div className="space-y-2">
-          <Label htmlFor="contactPerson" className="text-sm font-medium">
-            Contact Person
+        <div className="space-y-2.5">
+          <Label htmlFor="contactPerson" className="text-sm font-semibold text-foreground">
+            Contact Person <span className="text-destructive">*</span>
           </Label>
           <Input
             id="contactPerson"
             name="contactPerson"
-            placeholder="Enter contact person name"
+            placeholder="e.g., John Smith"
             defaultValue={company?.contactPerson || ''}
+            className="border-2 border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
             required
           />
         </div>
 
         {/* Phone */}
-        <div className="space-y-2">
-          <Label htmlFor="phone" className="text-sm font-medium">
-            Phone Number
+        <div className="space-y-2.5">
+          <Label htmlFor="phone" className="text-sm font-semibold text-foreground">
+            Phone Number <span className="text-destructive">*</span>
           </Label>
           <Input
             id="phone"
             name="phone"
             type="tel"
-            placeholder="Enter phone number"
+            placeholder="e.g., +880 1234 567890"
             defaultValue={company?.phone || ''}
+            className="border-2 border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
             required
           />
         </div>
 
         {/* Email */}
-        <div className="space-y-2">
-          <Label htmlFor="email" className="text-sm font-medium">
-            Email Address
+        <div className="space-y-2.5">
+          <Label htmlFor="email" className="text-sm font-semibold text-foreground">
+            Email Address <span className="text-destructive">*</span>
           </Label>
           <Input
             id="email"
             name="email"
             type="email"
-            placeholder="Enter email address"
+            placeholder="e.g., contact@company.com"
             defaultValue={company?.email || ''}
+            className="border-2 border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
             required
           />
         </div>
 
         {/* Status */}
-        <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="status" className="text-sm font-medium">
-            Status
+        <div className="space-y-2.5 sm:col-span-2">
+          <Label htmlFor="status" className="text-sm font-semibold text-foreground">
+            Company Status <span className="text-destructive">*</span>
           </Label>
           <Select name="status" defaultValue={company?.status || 'Active'}>
-            <SelectTrigger>
+            <SelectTrigger className="border-2 border-border bg-card text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Active">Active</SelectItem>
-              <SelectItem value="Inactive">Inactive</SelectItem>
-              <SelectItem value="Pending">Pending</SelectItem>
+              <SelectItem value="Active">Active - Currently Operational</SelectItem>
+              <SelectItem value="Inactive">Inactive - Not Operational</SelectItem>
+              <SelectItem value="Pending">Pending - Approval Required</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
       {/* Form Actions */}
-      <div className="flex justify-end gap-3 border-t border-border pt-6">
+      <div className="flex items-center justify-between gap-3 border-t border-border pt-6">
+        <p className="text-xs text-muted-foreground">
+          <span className="text-destructive">*</span> Indicates required fields
+        </p>
         <Button
           type="submit"
           disabled={isLoading}
+          className="min-w-[140px]"
         >
           {isLoading ? 'Saving...' : company ? 'Update Company' : 'Add Company'}
         </Button>
