@@ -19,6 +19,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useRouter } from "next/navigation";
+import { logout } from "@/app/actions/auth.actions";
 
 interface TopNavProps {
   title?: string;
@@ -26,6 +29,15 @@ interface TopNavProps {
 }
 
 export function TopNav({ title = "Dashboard", onMenuClick }: TopNavProps) {
+  const { user, isLoading } = useCurrentUser();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+    router.refresh();
+  };
+
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-card">
       <div className="flex h-16 items-center justify-between gap-4 px-4 md:px-6">
@@ -72,38 +84,52 @@ export function TopNav({ title = "Dashboard", onMenuClick }: TopNavProps) {
 
           {/* User Menu */}
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-secondary">
-                <Avatar className="size-8">
-                  <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=Supply" />
-                  <AvatarFallback>SM</AvatarFallback>
-                </Avatar>
-
-                <div className="hidden text-left sm:flex sm:flex-col">
-                  <span className="text-sm font-medium text-foreground">
-                    John Doe
-                  </span>
-
-                  <span className="text-xs text-muted-foreground">Admin</span>
-                </div>
-
+            <DropdownMenuTrigger>
+              <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-secondary">
+                {isLoading ? (
+                  <>
+                    <div className="size-8 rounded-full bg-muted animate-pulse" />
+                    <div className="hidden sm:flex sm:flex-col gap-1.5">
+                      <div className="h-4 w-16 rounded bg-muted animate-pulse" />
+                      <div className="h-4 w-12 rounded bg-muted animate-pulse" />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Avatar className="size-8">
+                      <AvatarImage src={user?.avatar} />
+                      <AvatarFallback>SM</AvatarFallback>
+                    </Avatar>
+                    <div className="hidden text-left sm:flex sm:flex-col">
+                      <span className="text-sm font-medium text-foreground">
+                        {user?.username || "John Doe"}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {user?.role || "Admin"}
+                      </span>
+                    </div>
+                  </>
+                )}
                 <ChevronDown className="size-4 text-muted-foreground" />
-              </button>
+              </div>
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              {/* <DropdownMenuLabel>My Account</DropdownMenuLabel> */}
 
-              <DropdownMenuSeparator />
+              {/* <DropdownMenuSeparator /> */}
 
-              <DropdownMenuItem className="cursor-pointer">
+              {/* <DropdownMenuItem className="cursor-pointer">
                 <Settings className="mr-2 size-4" />
                 Settings
               </DropdownMenuItem>
 
-              <DropdownMenuSeparator />
+              <DropdownMenuSeparator /> */}
 
-              <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive">
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="cursor-pointer hover:bg-black!"
+              >
                 <LogOut className="mr-2 size-4" />
                 Logout
               </DropdownMenuItem>

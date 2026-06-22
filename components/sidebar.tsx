@@ -13,6 +13,7 @@ import {
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 interface NavItem {
   icon: React.ReactNode;
@@ -74,6 +75,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ open, onOpenChange }: SidebarProps) {
+  const router = useRouter();
   return (
     <>
       {/* Mobile Overlay */}
@@ -93,7 +95,10 @@ export function Sidebar({ open, onOpenChange }: SidebarProps) {
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-5">
-          <div className="flex items-center gap-3">
+          <div
+            className="flex items-center gap-3 cursor-pointer"
+            onClick={() => router.push("/dashboard")}
+          >
             <div className="flex size-10 items-center justify-center rounded-lg bg-primary font-semibold text-primary-foreground">
               SM
             </div>
