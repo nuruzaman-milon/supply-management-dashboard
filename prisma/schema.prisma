@@ -1,0 +1,299 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+//schema design here
+enum UserRole {
+  ADMIN
+  MANAGER
+  ACCOUNTS
+  SALES
+}
+
+enum GeneralStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CompanyStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CategoryStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum AdjustmentType {
+  DISCOUNT
+  WAIVER
+  CORRECTION
+  WRITE_OFF
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+enum SupplyStatus {
+  PENDING
+  DELIVERED
+  PARTIAL_DELIVERED
+  CANCELLED
+}
+
+model User {
+  id String @id @default(uuid())
+
+  username String @unique
+  email    String @unique
+  password String
+
+  avatar String?
+
+  role   UserRole   @default(ADMIN)
+  status UserStatus @default(ACTIVE)
+
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  supplies           Supply[]
+  invoices           Invoice[]
+  collections        Collection[]
+  invoiceAdjustments InvoiceAdjustment[]
+
+  @@map("users")
+}
+
+model Company {
+  id String @id @default(uuid())
+
+  companyName   String
+  contactPerson String
+
+  phone String
+  email String?
+
+  address String?
+  notes   String?
+
+  status CompanyStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  supplies Supply[]
+  invoices Invoice[]
+
+  @@map("companies")
+}
+
+model Category {
+  id String @id @default(uuid())
+
+  name        String
+  description String?
+
+  status CategoryStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id String @id @default(uuid())
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  name String
+  sku  String @unique
+
+  unit          String
+  purchasePrice Decimal @db.Decimal(12, 2)
+  sellingPrice  Decimal @db.Decimal(12, 2)
+
+  description String?
+
+  status GeneralStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  supplyItems SupplyItem[]
+
+  @@map("products")
+}
+
+model Supply {
+  id String @id @default(uuid())
+
+  supplyNo String @unique
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+
+  supplyDate DateTime
+
+  subtotal      Decimal       @db.Decimal(12, 2)
+  discountType  DiscountType?
+  discountValue Decimal?      @db.Decimal(12, 2)
+  supplyExpense Decimal       @default(0) @db.Decimal(12, 2)
+
+  supplyExpenseReason String?
+
+  grandTotal Decimal @db.Decimal(12, 2)
+
+  remarks String?
+
+  invoiceGenerated Boolean @default(false)
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items SupplyItem[]
+
+  invoice Invoice?
+
+  status SupplyStatus @default(PENDING)
+
+  @@map("supplies")
+}
+
+model SupplyItem {
+  id String @id @default(uuid())
+
+  supplyId String
+  supply   Supply @relation(fields: [supplyId], references: [id])
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  quantity Decimal @db.Decimal(12, 2)
+
+  unitPrice Decimal @db.Decimal(12, 2)
+
+  total Decimal @db.Decimal(12, 2)
+
+  @@map("supply_items")
+}
+
+model Invoice {
+  id String @id @default(uuid())
+
+  invoiceNo String @unique
+
+  supplyId String @unique
+  supply   Supply @relation(fields: [supplyId], references: [id])
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+
+  invoiceDate DateTime
+
+  dueDate DateTime
+
+  totalAmount Decimal @db.Decimal(12, 2)
+
+  status InvoiceStatus @default(UNPAID)
+
+  notes String?
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  collections Collection[]
+
+  adjustments InvoiceAdjustment[]
+
+  @@map("invoices")
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  MOBILE_BANKING
+  CHEQUE
+}
+
+model Collection {
+  id String @id @default(uuid())
+
+  collectionNo String @unique
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id])
+
+  collectionDate DateTime
+
+  amount Decimal @db.Decimal(12, 2)
+
+  paymentMethod PaymentMethod
+
+  referenceNo String?
+
+  remarks String?
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("collections")
+}
+
+model InvoiceAdjustment {
+  id String @id @default(uuid())
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id])
+
+  adjustmentType AdjustmentType
+
+  amount Decimal @db.Decimal(12, 2)
+
+  reason String?
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("invoice_adjustments")
+}
