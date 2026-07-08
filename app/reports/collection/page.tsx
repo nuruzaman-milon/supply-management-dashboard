@@ -88,9 +88,7 @@ export default function CollectionReportPage() {
   const avgCollectionAmount = Math.round(totalAmount / mockCollectionData.length)
 
   const formatAmount = (amount) => {
-    return new Intl.NumberFormat('en-BD', {
-      style: 'currency',
-      currency: 'BDT',
+    return '৳' + new Intl.NumberFormat('en-BD', {
       minimumFractionDigits: 0,
     }).format(amount)
   }

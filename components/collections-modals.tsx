@@ -263,9 +263,7 @@ export function ViewCollectionModal({
   if (!collection) return null
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-BD', {
-      style: 'currency',
-      currency: 'BDT',
+    return '৳' + new Intl.NumberFormat('en-BD', {
       minimumFractionDigits: 0,
     }).format(value)
   }

@@ -11,24 +11,13 @@ import {
 } from '@/components/ui/dialog'
 import { CompanyForm } from '@/components/company-form'
 import { AlertTriangle } from 'lucide-react'
-
-interface Company {
-  id?: string
-  name: string
-  contactPerson: string
-  phone: string
-  email: string
-  totalRevenue?: number
-  totalDue?: number
-  status: 'Active' | 'Inactive' | 'Pending'
-  createdAt?: string
-}
+import type { CompanyDTO, CompanyInput } from '@/app/actions/company.actions'
 
 // Add Company Modal
 interface AddCompanyModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSubmit: (data: Company) => void
+  onSubmit: (data: CompanyInput) => void
   isLoading?: boolean
 }
 
@@ -40,7 +29,7 @@ export function AddCompanyModal({
 }: AddCompanyModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl border-2 border-border bg-card">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto border-2 border-border bg-card">
         <DialogHeader className="space-y-3">
           <DialogTitle className="text-2xl font-bold text-foreground">
             Add New Company
@@ -49,20 +38,14 @@ export function AddCompanyModal({
             Enter the company details below. All fields marked with <span className="text-destructive font-semibold">*</span> are required.
           </DialogDescription>
         </DialogHeader>
-        
-        <div className="bg-secondary/30 rounded-lg p-4 mb-4">
+
+        <div className="bg-secondary/30 rounded-lg p-4">
           <p className="text-sm text-muted-foreground">
             Adding a new company will make it available in your system for invoicing and supply management.
           </p>
         </div>
-        
-        <CompanyForm
-          onSubmit={(data) => {
-            onSubmit(data)
-            onOpenChange(false)
-          }}
-          isLoading={isLoading}
-        />
+
+        <CompanyForm onSubmit={onSubmit} isLoading={isLoading} />
       </DialogContent>
     </Dialog>
   )
@@ -72,8 +55,8 @@ export function AddCompanyModal({
 interface EditCompanyModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  company: Company | null
-  onSubmit: (data: Company) => void
+  company: CompanyDTO | null
+  onSubmit: (data: CompanyInput) => void
   isLoading?: boolean
 }
 
@@ -88,7 +71,7 @@ export function EditCompanyModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl border-2 border-border bg-card">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto border-2 border-border bg-card">
         <DialogHeader className="space-y-3">
           <DialogTitle className="text-2xl font-bold text-foreground">
             Edit Company Details
@@ -97,19 +80,16 @@ export function EditCompanyModal({
             Update the information for <span className="font-semibold text-foreground">{company.name}</span>. All fields marked with <span className="text-destructive font-semibold">*</span> are required.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="bg-secondary/30 rounded-lg p-4 mb-4">
           <p className="text-sm text-muted-foreground">
             Changes will be saved immediately. You can edit this company anytime.
           </p>
         </div>
-        
+
         <CompanyForm
           company={company}
-          onSubmit={(data) => {
-            onSubmit(data)
-            onOpenChange(false)
-          }}
+          onSubmit={onSubmit}
           isLoading={isLoading}
         />
       </DialogContent>
@@ -121,7 +101,7 @@ export function EditCompanyModal({
 interface ViewCompanyModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  company: Company | null
+  company: CompanyDTO | null
 }
 
 export function ViewCompanyModal({
@@ -132,16 +112,14 @@ export function ViewCompanyModal({
   if (!company) return null
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-BD', {
-      style: 'currency',
-      currency: 'BDT',
+    return '৳' + new Intl.NumberFormat('en-BD', {
       minimumFractionDigits: 0,
     }).format(value)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl border-2 border-border bg-card">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto border-2 border-border bg-card">
         <DialogHeader className="space-y-3">
           <DialogTitle className="text-2xl font-bold text-foreground">
             {company.name}
@@ -161,15 +139,13 @@ export function ViewCompanyModal({
               <div className="flex items-center gap-2">
                 <div
                   className={`size-3 rounded-full ${
-                    company.status === 'Active'
+                    company.status === 'ACTIVE'
                       ? 'bg-green-500'
-                      : company.status === 'Inactive'
-                        ? 'bg-gray-500'
-                        : 'bg-amber-500'
+                      : 'bg-gray-500'
                   }`}
                 />
                 <span className="font-semibold text-foreground">
-                  {company.status}
+                  {company.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                 </span>
               </div>
             </div>
@@ -213,8 +189,26 @@ export function ViewCompanyModal({
                 <p className="text-sm font-medium text-muted-foreground mb-1">
                   Email Address
                 </p>
-                <p className="text-base font-semibold text-foreground">{company.email}</p>
+                <p className="text-base font-semibold text-foreground">
+                  {company.email || '—'}
+                </p>
               </div>
+              <div className="sm:col-span-2">
+                <p className="text-sm font-medium text-muted-foreground mb-1">
+                  Address
+                </p>
+                <p className="text-base font-semibold text-foreground">
+                  {company.address || '—'}
+                </p>
+              </div>
+              {company.notes && (
+                <div className="sm:col-span-2">
+                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                    Notes
+                  </p>
+                  <p className="text-base text-foreground">{company.notes}</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -262,7 +256,7 @@ export function ViewCompanyModal({
 interface DeleteCompanyModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  company: Company | null
+  company: CompanyDTO | null
   onConfirm: () => void
   isLoading?: boolean
 }

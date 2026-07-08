@@ -83,9 +83,7 @@ export default function DueReportPage() {
   const avgMonthlyDue = Math.round(totalDue / mockDueData.length)
 
   const formatAmount = (amount) => {
-    return new Intl.NumberFormat('en-BD', {
-      style: 'currency',
-      currency: 'BDT',
+    return '৳' + new Intl.NumberFormat('en-BD', {
       minimumFractionDigits: 0,
     }).format(amount)
   }

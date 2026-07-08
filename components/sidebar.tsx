@@ -72,9 +72,10 @@ const navItems: NavItem[] = [
 interface SidebarProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  collapsed?: boolean;
 }
 
-export function Sidebar({ open, onOpenChange }: SidebarProps) {
+export function Sidebar({ open, onOpenChange, collapsed = false }: SidebarProps) {
   const router = useRouter();
   return (
     <>
@@ -89,22 +90,30 @@ export function Sidebar({ open, onOpenChange }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col border-r border-border bg-card transition-transform duration-300 ease-in-out md:relative md:z-auto",
+          "fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col border-r border-border bg-card transition-all duration-300 ease-in-out md:relative md:z-auto",
           open ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+          collapsed ? "md:w-16" : "md:w-64",
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-6 py-5">
+        <div
+          className={cn(
+            "flex items-center justify-between border-b border-border px-6 py-5",
+            collapsed && "md:justify-center md:px-3",
+          )}
+        >
           <div
             className="flex items-center gap-3 cursor-pointer"
             onClick={() => router.push("/dashboard")}
           >
-            <div className="flex size-10 items-center justify-center rounded-lg bg-primary font-semibold text-primary-foreground">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary font-semibold text-primary-foreground">
               SM
             </div>
 
-            <div>
-              <h1 className="text-sm font-semibold">Supply Management</h1>
+            <div className={cn(collapsed && "md:hidden")}>
+              <h1 className="text-sm font-semibold whitespace-nowrap">
+                Supply Management
+              </h1>
               <p className="text-xs text-muted-foreground">Admin Panel</p>
             </div>
           </div>
@@ -121,10 +130,16 @@ export function Sidebar({ open, onOpenChange }: SidebarProps) {
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-secondary"
+                title={collapsed ? item.label : undefined}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-secondary",
+                  collapsed && "md:justify-center md:px-2",
+                )}
               >
-                {item.icon}
-                <span>{item.label}</span>
+                <span className="shrink-0">{item.icon}</span>
+                <span className={cn("whitespace-nowrap", collapsed && "md:hidden")}>
+                  {item.label}
+                </span>
               </Link>
             ))}
           </div>
@@ -132,7 +147,7 @@ export function Sidebar({ open, onOpenChange }: SidebarProps) {
 
         {/* Footer */}
         <div className="border-t border-border p-4">
-          <div className="text-center">
+          <div className={cn("text-center", collapsed && "md:hidden")}>
             <p className="text-xs text-muted-foreground">Supply Management</p>
             <p className="text-xs text-muted-foreground">v1.0.0</p>
           </div>

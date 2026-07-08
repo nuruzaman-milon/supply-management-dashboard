@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -45,139 +45,23 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
-
-interface Company {
-  id: string
-  name: string
-  contactPerson: string
-  phone: string
-  email: string
-  totalRevenue: number
-  totalDue: number
-  status: 'Active' | 'Inactive' | 'Pending'
-  createdAt: string
-}
-
-const mockCompanies: Company[] = [
-  {
-    id: '1',
-    name: 'Acme Corporation',
-    contactPerson: 'John Smith',
-    phone: '+1-555-0101',
-    email: 'john@acme.com',
-    totalRevenue: 125000,
-    totalDue: 15000,
-    status: 'Active',
-    createdAt: '2024-01-15',
-  },
-  {
-    id: '2',
-    name: 'Global Tech Solutions',
-    contactPerson: 'Sarah Johnson',
-    phone: '+1-555-0102',
-    email: 'sarah@globaltech.com',
-    totalRevenue: 89000,
-    totalDue: 8900,
-    status: 'Active',
-    createdAt: '2024-02-20',
-  },
-  {
-    id: '3',
-    name: 'Innovative Supply Co',
-    contactPerson: 'Michael Chen',
-    phone: '+1-555-0103',
-    email: 'michael@innovsupply.com',
-    totalRevenue: 156000,
-    totalDue: 0,
-    status: 'Active',
-    createdAt: '2023-12-10',
-  },
-  {
-    id: '4',
-    name: 'Prime Distribution',
-    contactPerson: 'Emily Davis',
-    phone: '+1-555-0104',
-    email: 'emily@primedist.com',
-    totalRevenue: 92000,
-    totalDue: 12000,
-    status: 'Inactive',
-    createdAt: '2024-03-05',
-  },
-  {
-    id: '5',
-    name: 'Connected Logistics',
-    contactPerson: 'David Wilson',
-    phone: '+1-555-0105',
-    email: 'david@conlogistics.com',
-    totalRevenue: 234000,
-    totalDue: 28000,
-    status: 'Active',
-    createdAt: '2024-01-25',
-  },
-  {
-    id: '6',
-    name: 'Quantum Materials',
-    contactPerson: 'Lisa Rodriguez',
-    phone: '+1-555-0106',
-    email: 'lisa@quantummaterials.com',
-    totalRevenue: 178000,
-    totalDue: 22000,
-    status: 'Pending',
-    createdAt: '2024-04-01',
-  },
-  {
-    id: '7',
-    name: 'Nexus Imports Ltd',
-    contactPerson: 'James Brown',
-    phone: '+1-555-0107',
-    email: 'james@nexusimports.com',
-    totalRevenue: 65000,
-    totalDue: 5000,
-    status: 'Active',
-    createdAt: '2024-02-14',
-  },
-  {
-    id: '8',
-    name: 'Strategic Partners Inc',
-    contactPerson: 'Amanda Martinez',
-    phone: '+1-555-0108',
-    email: 'amanda@stratpartners.com',
-    totalRevenue: 201000,
-    totalDue: 35000,
-    status: 'Active',
-    createdAt: '2023-11-30',
-  },
-  {
-    id: '9',
-    name: 'Elite Manufacturing',
-    contactPerson: 'Robert Taylor',
-    phone: '+1-555-0109',
-    email: 'robert@elitemanufacturing.com',
-    totalRevenue: 145000,
-    totalDue: 18000,
-    status: 'Active',
-    createdAt: '2024-01-08',
-  },
-  {
-    id: '10',
-    name: 'Universal Trade Group',
-    contactPerson: 'Jennifer Garcia',
-    phone: '+1-555-0110',
-    email: 'jennifer@universaltrade.com',
-    totalRevenue: 112000,
-    totalDue: 9000,
-    status: 'Inactive',
-    createdAt: '2024-03-20',
-  },
-]
+import {
+  getCompanies,
+  createCompany,
+  updateCompany,
+  deleteCompany,
+  type CompanyDTO,
+  type CompanyInput,
+} from '@/app/actions/company.actions'
 
 const ITEMS_PER_PAGE = 5
 
 export default function CompaniesPage() {
-  const [companies, setCompanies] = useState<Company[]>(mockCompanies)
+  const [companies, setCompanies] = useState<CompanyDTO[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [isLoading, setIsLoading] = useState(false)
+  const [isFetching, setIsFetching] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
 
   // Modal states
@@ -185,7 +69,26 @@ export default function CompaniesPage() {
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [viewModalOpen, setViewModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
+  const [selectedCompany, setSelectedCompany] = useState<CompanyDTO | null>(null)
+
+  // Load companies from the backend
+  useEffect(() => {
+    let active = true
+    getCompanies()
+      .then((data) => {
+        if (active) setCompanies(data)
+      })
+      .catch((error) => {
+        console.error('Failed to load companies', error)
+        alert((error as Error).message || 'Failed to load companies')
+      })
+      .finally(() => {
+        if (active) setIsFetching(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   // Filter companies
   const filteredCompanies = useMemo(() => {
@@ -223,88 +126,89 @@ export default function CompaniesPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Active':
+      case 'ACTIVE':
         return 'default'
-      case 'Inactive':
+      case 'INACTIVE':
         return 'secondary'
-      case 'Pending':
-        return 'outline'
       default:
         return 'default'
     }
   }
 
+  const statusLabel = (status: string) =>
+    status === 'ACTIVE' ? 'Active' : 'Inactive'
+
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-BD', {
-      style: 'currency',
-      currency: 'BDT',
+    return '৳' + new Intl.NumberFormat('en-BD', {
       minimumFractionDigits: 0,
     }).format(value)
   }
 
   // Handle Add Company
-  const handleAddCompany = (data: Company) => {
-    setIsLoading(true)
-    // Simulate API call
-    setTimeout(() => {
-      const newCompany: Company = {
-        ...data,
-        id: (companies.length + 1).toString(),
-        totalRevenue: 0,
-        totalDue: 0,
-        createdAt: new Date().toISOString().split('T')[0],
-      }
-      setCompanies([...companies, newCompany])
-      setIsLoading(false)
+  const handleAddCompany = async (data: CompanyInput) => {
+    setIsSaving(true)
+    try {
+      const created = await createCompany(data)
+      setCompanies((prev) => [created, ...prev])
       setAddModalOpen(false)
-    }, 500)
+    } catch (error) {
+      console.error('Failed to add company', error)
+      alert((error as Error).message || 'Failed to add company')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   // Handle Edit Company
-  const handleEditCompany = (data: Company) => {
-    setIsLoading(true)
-    // Simulate API call
-    setTimeout(() => {
-      setCompanies(
-        companies.map((c) =>
-          c.id === data.id
-            ? { ...c, ...data }
-            : c
-        )
+  const handleEditCompany = async (data: CompanyInput) => {
+    if (!selectedCompany) return
+    setIsSaving(true)
+    try {
+      const updated = await updateCompany(selectedCompany.id, data)
+      setCompanies((prev) =>
+        prev.map((c) => (c.id === updated.id ? updated : c))
       )
-      setIsLoading(false)
       setEditModalOpen(false)
       setSelectedCompany(null)
-    }, 500)
+    } catch (error) {
+      console.error('Failed to update company', error)
+      alert((error as Error).message || 'Failed to update company')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   // Handle Delete Company
-  const handleDeleteCompany = () => {
+  const handleDeleteCompany = async () => {
     if (!selectedCompany) return
-    setIsLoading(true)
-    // Simulate API call
-    setTimeout(() => {
-      setCompanies(companies.filter((c) => c.id !== selectedCompany.id))
-      setIsLoading(false)
+    setIsSaving(true)
+    try {
+      await deleteCompany(selectedCompany.id)
+      setCompanies((prev) => prev.filter((c) => c.id !== selectedCompany.id))
       setDeleteModalOpen(false)
       setSelectedCompany(null)
-    }, 500)
+    } catch (error) {
+      console.error('Failed to delete company', error)
+      alert((error as Error).message || 'Failed to delete company')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   // Handle View Details
-  const handleViewDetails = (company: Company) => {
+  const handleViewDetails = (company: CompanyDTO) => {
     setSelectedCompany(company)
     setViewModalOpen(true)
   }
 
   // Handle Edit
-  const handleEdit = (company: Company) => {
+  const handleEdit = (company: CompanyDTO) => {
     setSelectedCompany(company)
     setEditModalOpen(true)
   }
 
   // Handle Delete
-  const handleDelete = (company: Company) => {
+  const handleDelete = (company: CompanyDTO) => {
     setSelectedCompany(company)
     setDeleteModalOpen(true)
   }
@@ -359,9 +263,8 @@ export default function CompaniesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="Inactive">Inactive</SelectItem>
-                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="ACTIVE">Active</SelectItem>
+                  <SelectItem value="INACTIVE">Inactive</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -384,7 +287,7 @@ export default function CompaniesPage() {
 
         {/* Companies Table */}
         <Card>
-          {isLoading ? (
+          {isFetching ? (
             // Loading State
             <div className="flex h-96 items-center justify-center">
               <div className="text-center">
@@ -477,7 +380,7 @@ export default function CompaniesPage() {
                         </TableCell>
                         <TableCell>
                           <Badge variant={getStatusColor(company.status)}>
-                            {company.status}
+                            {statusLabel(company.status)}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
@@ -575,7 +478,7 @@ export default function CompaniesPage() {
         open={addModalOpen}
         onOpenChange={setAddModalOpen}
         onSubmit={handleAddCompany}
-        isLoading={isLoading}
+        isLoading={isSaving}
       />
 
       <EditCompanyModal
@@ -583,7 +486,7 @@ export default function CompaniesPage() {
         onOpenChange={setEditModalOpen}
         company={selectedCompany}
         onSubmit={handleEditCompany}
-        isLoading={isLoading}
+        isLoading={isSaving}
       />
 
       <ViewCompanyModal
@@ -597,7 +500,7 @@ export default function CompaniesPage() {
         onOpenChange={setDeleteModalOpen}
         company={selectedCompany}
         onConfirm={handleDeleteCompany}
-        isLoading={isLoading}
+        isLoading={isSaving}
       />
     </DashboardLayout>
   )

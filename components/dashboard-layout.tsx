@@ -17,6 +17,7 @@ export function DashboardLayout({
   breadcrumbs = [],
 }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -36,12 +37,34 @@ export function DashboardLayout({
     };
   }, []);
 
+  // Restore the collapsed preference (desktop only) from a previous session.
+  useEffect(() => {
+    setCollapsed(localStorage.getItem("sidebar-collapsed") === "true");
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("sidebar-collapsed", String(next));
+      return next;
+    });
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} />
+      <Sidebar
+        open={sidebarOpen}
+        onOpenChange={setSidebarOpen}
+        collapsed={collapsed}
+      />
 
       <div className="flex h-screen flex-1 flex-col overflow-hidden">
-        <TopNav title={title} onMenuClick={() => setSidebarOpen(true)} />
+        <TopNav
+          title={title}
+          onMenuClick={() => setSidebarOpen(true)}
+          onToggleCollapse={toggleCollapsed}
+          collapsed={collapsed}
+        />
 
         {breadcrumbs.length > 0 && <BreadcrumbNav items={breadcrumbs} />}
 

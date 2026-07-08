@@ -7,6 +7,8 @@ import {
   LogOut,
   Settings,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -26,9 +28,16 @@ import { logout } from "@/app/actions/auth.actions";
 interface TopNavProps {
   title?: string;
   onMenuClick?: () => void;
+  onToggleCollapse?: () => void;
+  collapsed?: boolean;
 }
 
-export function TopNav({ title = "Dashboard", onMenuClick }: TopNavProps) {
+export function TopNav({
+  title = "Dashboard",
+  onMenuClick,
+  onToggleCollapse,
+  collapsed = false,
+}: TopNavProps) {
   const { user, isLoading } = useCurrentUser();
   const router = useRouter();
 
@@ -49,6 +58,20 @@ export function TopNav({ title = "Dashboard", onMenuClick }: TopNavProps) {
             className="inline-flex size-10 items-center justify-center rounded-lg hover:bg-secondary md:hidden"
           >
             <Menu className="size-5" />
+          </button>
+
+          {/* Desktop Collapse Toggle */}
+          <button
+            onClick={onToggleCollapse}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="hidden size-10 items-center justify-center rounded-lg text-foreground hover:bg-secondary md:inline-flex"
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="size-5" />
+            ) : (
+              <PanelLeftClose className="size-5" />
+            )}
           </button>
 
           {/* Page Title */}

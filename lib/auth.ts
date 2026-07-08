@@ -1,5 +1,7 @@
 import { SignJWT, jwtVerify } from "jose";
 
+export const SESSION_COOKIE = "supply-session";
+
 const secretKey = process.env.AUTH_SECRET!;
 const encodedKey = new TextEncoder().encode(secretKey);
 

@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
-import { encrypt, decrypt } from "./auth";
+import { encrypt, decrypt, SESSION_COOKIE } from "./auth";
 
-const COOKIE_NAME = "supply-session";
+const COOKIE_NAME = SESSION_COOKIE;
 
 export async function createSession(payload: {
   id: string;

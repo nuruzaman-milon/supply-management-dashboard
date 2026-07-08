@@ -117,9 +117,7 @@ export default function SuppliesPage() {
   )
 
   const formatAmount = (amount) => {
-    return new Intl.NumberFormat('en-BD', {
-      style: 'currency',
-      currency: 'BDT',
+    return '৳' + new Intl.NumberFormat('en-BD', {
       minimumFractionDigits: 0,
     }).format(amount)
   }

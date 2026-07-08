@@ -21,7 +21,10 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-      router.push("/dashboard");
+      const redirect = new URLSearchParams(window.location.search).get(
+        "redirect"
+      );
+      router.push(redirect || "/dashboard");
     } catch (error) {
       console.error("Login failed", error);
       alert((error as Error).message || "Login failed");
