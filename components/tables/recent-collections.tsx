@@ -2,22 +2,30 @@
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import type { CollectionListDTO } from '@/app/actions/collection.actions'
 
-const collectionsData = [
-  { id: 'COL001', invoice: 'INV001', company: 'Acme Corporation', amount: '$12,450', paymentDate: '2024-01-20', method: 'Bank Transfer' },
-  { id: 'COL002', invoice: 'INV004', company: 'Industry Leaders Inc', amount: '$22,340', paymentDate: '2024-01-19', method: 'Credit Card' },
-  { id: 'COL003', invoice: 'INV007', company: 'Market Dynamics', amount: '$8,760', paymentDate: '2024-01-18', method: 'Cheque' },
-  { id: 'COL004', invoice: 'INV010', company: 'Strategic Ventures', amount: '$16,200', paymentDate: '2024-01-17', method: 'Bank Transfer' },
-  { id: 'COL005', invoice: 'INV013', company: 'Future Growth Ltd', amount: '$11,550', paymentDate: '2024-01-16', method: 'Online Payment' },
-]
+const methodLabels: Record<string, string> = {
+  CASH: 'Cash',
+  BANK_TRANSFER: 'Bank Transfer',
+  MOBILE_BANKING: 'Mobile Banking',
+  CHEQUE: 'Cheque',
+}
 
-export function RecentCollectionsTable() {
+function formatAmount(v: number) {
+  return '৳' + new Intl.NumberFormat('en-BD', { minimumFractionDigits: 0 }).format(v)
+}
+
+export function RecentCollectionsTable({ collections }: { collections: CollectionListDTO[] }) {
+  if (collections.length === 0) {
+    return <p className="py-8 text-center text-sm text-muted-foreground">No collections yet</p>
+  }
+
   return (
     <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow className="border-border bg-secondary">
-            <TableHead className="font-semibold text-foreground">Collection ID</TableHead>
+            <TableHead className="font-semibold text-foreground">Collection No</TableHead>
             <TableHead className="font-semibold text-foreground">Invoice</TableHead>
             <TableHead className="font-semibold text-foreground">Company</TableHead>
             <TableHead className="text-right font-semibold text-foreground">Amount</TableHead>
@@ -26,18 +34,20 @@ export function RecentCollectionsTable() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {collectionsData.map((collection) => (
+          {collections.map((collection) => (
             <TableRow key={collection.id} className="border-border hover:bg-secondary/50">
-              <TableCell className="text-sm font-medium text-foreground">{collection.id}</TableCell>
-              <TableCell className="text-sm font-medium text-primary">{collection.invoice}</TableCell>
-              <TableCell className="text-sm text-muted-foreground">{collection.company}</TableCell>
-              <TableCell className="text-right text-sm font-semibold text-foreground">{collection.amount}</TableCell>
+              <TableCell className="font-mono text-sm font-medium text-foreground">{collection.collectionNo}</TableCell>
+              <TableCell className="font-mono text-sm font-medium text-primary">{collection.invoiceNo}</TableCell>
+              <TableCell className="text-sm text-muted-foreground">{collection.companyName}</TableCell>
+              <TableCell className="text-right text-sm font-semibold text-green-600">{formatAmount(collection.amount)}</TableCell>
               <TableCell>
                 <Badge variant="secondary" className="text-xs">
-                  {collection.method}
+                  {methodLabels[collection.paymentMethod] || collection.paymentMethod}
                 </Badge>
               </TableCell>
-              <TableCell className="text-sm text-muted-foreground">{collection.paymentDate}</TableCell>
+              <TableCell className="text-sm text-muted-foreground">
+                {new Date(collection.collectionDate).toLocaleDateString()}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>

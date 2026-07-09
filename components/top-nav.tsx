@@ -133,7 +133,7 @@ export function TopNav({
               </div>
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-32">
               {/* <DropdownMenuLabel>My Account</DropdownMenuLabel> */}
 
               {/* <DropdownMenuSeparator /> */}
@@ -147,9 +147,9 @@ export function TopNav({
 
               <DropdownMenuItem
                 onClick={handleLogout}
-                className="cursor-pointer hover:bg-black!"
+                className="cursor-pointer hover:bg-black! hover:text-white!"
               >
-                <LogOut className="mr-2 size-4" />
+                <LogOut className="mr-2 size-4" color="white" />
                 Logout
               </DropdownMenuItem>
             </DropdownMenuContent>

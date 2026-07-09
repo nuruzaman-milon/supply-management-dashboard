@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { Plus, Trash2 } from 'lucide-react'
 import {
   GenericAddModal,
   GenericEditModal,
@@ -17,13 +18,37 @@ import { PRODUCT_UNITS, unitLabel } from '@/lib/units'
 
 type CategoryOption = { id: string; name: string }
 
-// Build a SKU slug from the product name: uppercase, alphanumeric runs
-// joined by dashes. e.g. "Wireless Mouse 2.0" -> "WIRELESS-MOUSE-2-0"
-function skuFromName(name: string): string {
-  return name
+const inputClass =
+  'border-2 border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20'
+const selectClass = cn(
+  inputClass,
+  'flex h-9 w-full rounded-lg px-3 py-2 text-sm outline-none'
+)
+
+// Build a SKU slug from product + variant, e.g. "Rice" + "500g" -> "RICE-500G"
+function skuFromName(value: string): string {
+  return value
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
+}
+
+function formatCurrency(value: number) {
+  return '৳' + new Intl.NumberFormat('en-BD', { minimumFractionDigits: 0 }).format(value)
+}
+
+type VariantRow = {
+  id?: string
+  name: string
+  sku: string
+  skuEdited: boolean
+  unit: string
+  purchasePrice: string
+  sellingPrice: string
+}
+
+function emptyVariant(): VariantRow {
+  return { name: '', sku: '', skuEdited: false, unit: 'pcs', purchasePrice: '', sellingPrice: '' }
 }
 
 interface ProductFormProps {
@@ -33,107 +58,116 @@ interface ProductFormProps {
   isLoading?: boolean
 }
 
-function ProductForm({
-  product,
-  categories,
-  onSubmit,
-  isLoading = false,
-}: ProductFormProps) {
-  const [name, setName] = useState<string>(product?.name || '')
-  const [sku, setSku] = useState<string>(product?.sku || '')
-  // Existing products keep their SKU; only auto-fill an untouched SKU on add.
-  const [skuEdited, setSkuEdited] = useState<boolean>(Boolean(product))
-  const [categoryId, setCategoryId] = useState<string>(
-    product?.categoryId || ''
-  )
-  const [unit, setUnit] = useState<string>(product?.unit || 'pcs')
-  const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE'>(
-    product?.status || 'ACTIVE'
+function ProductForm({ product, categories, onSubmit, isLoading = false }: ProductFormProps) {
+  const [name, setName] = useState(product?.name || '')
+  const [brand, setBrand] = useState(product?.brand || '')
+  const [categoryId, setCategoryId] = useState(product?.categoryId || '')
+  const [description, setDescription] = useState(product?.description || '')
+  const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE'>(product?.status || 'ACTIVE')
+  const [rows, setRows] = useState<VariantRow[]>(
+    product && product.variants.length
+      ? product.variants.map((v) => ({
+          id: v.id,
+          name: v.name,
+          sku: v.sku,
+          skuEdited: true,
+          unit: v.unit,
+          purchasePrice: String(v.purchasePrice),
+          sellingPrice: String(v.sellingPrice),
+        }))
+      : [emptyVariant()]
   )
 
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
+  const updateRow = (index: number, patch: Partial<VariantRow>) => {
+    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)))
+  }
+
+  // Auto-fill a variant SKU from "<product> <variant label>" until manually edited.
+  const syncSku = (index: number, nextName: string, nextVariantName: string) => {
+    setRows((prev) =>
+      prev.map((r, i) =>
+        i === index && !r.skuEdited
+          ? { ...r, sku: skuFromName(`${nextName} ${nextVariantName}`.trim()) }
+          : r
+      )
+    )
+  }
+
+  const handleNameChange = (value: string) => {
     setName(value)
-    if (!skuEdited) setSku(skuFromName(value))
+    // Refresh untouched variant SKUs when the product name changes.
+    setRows((prev) =>
+      prev.map((r) =>
+        r.skuEdited ? r : { ...r, sku: skuFromName(`${value} ${r.name}`.trim()) }
+      )
+    )
   }
 
-  const handleSkuChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSku(e.target.value)
-    setSkuEdited(true)
-  }
+  const addRow = () => setRows((prev) => [...prev, emptyVariant()])
+  const removeRow = (index: number) =>
+    setRows((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== index)))
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const formData = new FormData(e.currentTarget)
     const data: ProductInput = {
       name,
-      sku,
-      unit,
+      brand,
       categoryId,
-      purchasePrice: parseFloat(formData.get('purchasePrice') as string),
-      sellingPrice: parseFloat(formData.get('sellingPrice') as string),
-      description: formData.get('description') as string,
+      description,
       status,
+      variants: rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        sku: r.sku,
+        unit: r.unit,
+        purchasePrice: parseFloat(r.purchasePrice) || 0,
+        sellingPrice: parseFloat(r.sellingPrice) || 0,
+      })),
     }
     onSubmit(data)
   }
 
-  const inputClass =
-    'border-2 border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20'
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Parent fields */}
       <div className="grid gap-6 sm:grid-cols-2">
-        {/* Product Name */}
-        <div className="space-y-2.5 sm:col-span-2">
+        <div className="space-y-2.5">
           <Label htmlFor="name" className="text-sm font-semibold text-foreground">
             Product Name <span className="text-destructive">*</span>
           </Label>
           <Input
             id="name"
-            name="name"
-            placeholder="e.g., Wireless Mouse"
+            placeholder="e.g., Rice"
             value={name}
-            onChange={handleNameChange}
+            onChange={(e) => handleNameChange(e.target.value)}
             className={inputClass}
             required
           />
         </div>
 
-        {/* SKU — auto-generated from the product name, editable */}
         <div className="space-y-2.5">
-          <Label htmlFor="sku" className="text-sm font-semibold text-foreground">
-            SKU <span className="text-destructive">*</span>
+          <Label htmlFor="brand" className="text-sm font-semibold text-foreground">
+            Brand
           </Label>
           <Input
-            id="sku"
-            name="sku"
-            placeholder="Auto-generated from name"
-            value={sku}
-            onChange={handleSkuChange}
-            className={cn(inputClass, 'font-mono')}
-            required
+            id="brand"
+            placeholder="e.g., Pusa (optional)"
+            value={brand}
+            onChange={(e) => setBrand(e.target.value)}
+            className={inputClass}
           />
-          <p className="text-xs text-muted-foreground">
-            Auto-filled from the product name — you can edit it.
-          </p>
         </div>
 
-        {/* Category (native select — reliable inside the dialog) */}
         <div className="space-y-2.5">
           <Label htmlFor="categoryId" className="text-sm font-semibold text-foreground">
             Category <span className="text-destructive">*</span>
           </Label>
           <select
             id="categoryId"
-            name="categoryId"
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
             required
-            className={cn(
-              inputClass,
-              'flex h-9 w-full rounded-lg px-3 py-2 text-sm outline-none'
-            )}
+            className={selectClass}
           >
             <option value="" disabled>
               Select category
@@ -146,82 +180,8 @@ function ProductForm({
           </select>
         </div>
 
-        {/* Unit (native select — reliable inside the dialog) */}
-        <div className="space-y-2.5">
-          <Label htmlFor="unit" className="text-sm font-semibold text-foreground">
-            Unit <span className="text-destructive">*</span>
-          </Label>
-          <select
-            id="unit"
-            name="unit"
-            value={unit}
-            onChange={(e) => setUnit(e.target.value)}
-            required
-            className={cn(
-              inputClass,
-              'flex h-9 w-full rounded-lg px-3 py-2 text-sm outline-none'
-            )}
-          >
-            {PRODUCT_UNITS.map((u) => (
-              <option key={u.value} value={u.value}>
-                {u.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Purchase Price */}
-        <div className="space-y-2.5">
-          <Label htmlFor="purchasePrice" className="text-sm font-semibold text-foreground">
-            Purchase Price <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="purchasePrice"
-            name="purchasePrice"
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="0.00"
-            defaultValue={product?.purchasePrice ?? ''}
-            className={inputClass}
-            required
-          />
-        </div>
-
-        {/* Selling Price */}
-        <div className="space-y-2.5">
-          <Label htmlFor="sellingPrice" className="text-sm font-semibold text-foreground">
-            Selling Price <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="sellingPrice"
-            name="sellingPrice"
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="0.00"
-            defaultValue={product?.sellingPrice ?? ''}
-            className={inputClass}
-            required
-          />
-        </div>
-
-        {/* Description */}
-        <div className="space-y-2.5 sm:col-span-2">
-          <Label htmlFor="description" className="text-sm font-semibold text-foreground">
-            Description
-          </Label>
-          <Textarea
-            id="description"
-            name="description"
-            placeholder="Enter product description"
-            defaultValue={product?.description || ''}
-            className={cn(inputClass, 'min-h-24')}
-          />
-        </div>
-
         {/* Status */}
-        <div className="space-y-2.5 sm:col-span-2">
+        <div className="space-y-2.5">
           <Label className="text-sm font-semibold text-foreground">
             Status <span className="text-destructive">*</span>
           </Label>
@@ -259,6 +219,125 @@ function ProductForm({
               )
             })}
           </div>
+        </div>
+
+        <div className="space-y-2.5 sm:col-span-2">
+          <Label htmlFor="description" className="text-sm font-semibold text-foreground">
+            Description
+          </Label>
+          <Textarea
+            id="description"
+            placeholder="Enter product description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className={cn(inputClass, 'min-h-20')}
+          />
+        </div>
+      </div>
+
+      {/* Variants */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-semibold text-foreground">
+            Variants <span className="text-destructive">*</span>
+          </Label>
+          <Button type="button" variant="outline" size="sm" className="gap-1" onClick={addRow}>
+            <Plus className="size-4" /> Add Variant
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Each size/pack is a variant with its own SKU and prices (e.g. 500g, 1kg, 5kg bag).
+        </p>
+
+        <div className="space-y-3 rounded-lg border-2 border-border bg-card p-3">
+          {rows.map((row, index) => (
+            <div
+              key={index}
+              className="space-y-2 rounded-md bg-secondary/20 p-3"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Variant {index + 1}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 text-destructive hover:text-destructive"
+                  onClick={() => removeRow(index)}
+                  disabled={rows.length === 1}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-12">
+                {/* Label */}
+                <div className="col-span-2 sm:col-span-3">
+                  <Input
+                    placeholder="Label e.g. 500g"
+                    value={row.name}
+                    onChange={(e) => {
+                      updateRow(index, { name: e.target.value })
+                      syncSku(index, name, e.target.value)
+                    }}
+                    className={inputClass}
+                    required
+                  />
+                </div>
+                {/* Unit */}
+                <div className="col-span-1 sm:col-span-2">
+                  <select
+                    value={row.unit}
+                    onChange={(e) => updateRow(index, { unit: e.target.value })}
+                    className={selectClass}
+                  >
+                    {PRODUCT_UNITS.map((u) => (
+                      <option key={u.value} value={u.value}>
+                        {u.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {/* SKU */}
+                <div className="col-span-1 sm:col-span-3">
+                  <Input
+                    placeholder="SKU"
+                    value={row.sku}
+                    onChange={(e) => updateRow(index, { sku: e.target.value, skuEdited: true })}
+                    className={cn(inputClass, 'font-mono')}
+                    required
+                  />
+                </div>
+                {/* Purchase */}
+                <div className="col-span-1 sm:col-span-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Buy ৳"
+                    value={row.purchasePrice}
+                    onChange={(e) => updateRow(index, { purchasePrice: e.target.value })}
+                    className={cn(inputClass, 'text-right')}
+                    required
+                  />
+                </div>
+                {/* Selling */}
+                <div className="col-span-1 sm:col-span-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Sell ৳"
+                    value={row.sellingPrice}
+                    onChange={(e) => updateRow(index, { sellingPrice: e.target.value })}
+                    className={cn(inputClass, 'text-right')}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -318,7 +397,7 @@ export function AddProductModal({
       onOpenChange={onOpenChange}
       title="Add New Product"
       description="Enter the product details below. All fields marked with"
-      helpText="Adding a new product will make it available for invoicing and supply management."
+      helpText="A product groups one or more variants (sizes/packs), each with its own SKU and prices."
     >
       <ProductForm categories={categories} onSubmit={onSubmit} isLoading={isLoading} />
     </GenericAddModal>
@@ -342,9 +421,10 @@ export function EditProductModal({
       title="Edit Product"
       description="Update the information for"
       entityName={product.name}
-      helpText="Changes will be saved immediately. You can edit this product anytime."
+      helpText="Changes will be saved immediately. Variants used in supplies can't be removed."
     >
       <ProductForm
+        key={product.id}
         product={product}
         categories={categories}
         onSubmit={onSubmit}
@@ -354,18 +434,8 @@ export function EditProductModal({
   )
 }
 
-export function ViewProductModal({
-  open,
-  onOpenChange,
-  product,
-}: ViewProductModalProps) {
+export function ViewProductModal({ open, onOpenChange, product }: ViewProductModalProps) {
   if (!product) return null
-
-  const formatCurrency = (value: number) => {
-    return '৳' + new Intl.NumberFormat('en-BD', {
-      minimumFractionDigits: 0,
-    }).format(value)
-  }
 
   return (
     <GenericViewModal
@@ -376,81 +446,63 @@ export function ViewProductModal({
     >
       <div className="space-y-6">
         <div className="rounded-lg border border-border/50 bg-secondary/20 p-4">
-          <h4 className="font-semibold text-foreground mb-4">Product Details</h4>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                Product Name
-              </p>
-              <p className="text-base font-semibold text-foreground">{product.name}</p>
+              <p className="mb-1 text-sm font-medium text-muted-foreground">Brand</p>
+              <p className="text-base font-semibold text-foreground">{product.brand || '—'}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                SKU
-              </p>
-              <p className="text-base font-semibold text-foreground font-mono">
-                {product.sku}
-              </p>
+              <p className="mb-1 text-sm font-medium text-muted-foreground">Category</p>
+              <p className="text-base font-semibold text-foreground">{product.categoryName}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                Category
-              </p>
-              <p className="text-base font-semibold text-foreground">
-                {product.categoryName}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                Unit
-              </p>
-              <p className="text-base font-semibold text-foreground">
-                {unitLabel(product.unit)}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                Purchase Price
-              </p>
-              <p className="text-base font-semibold text-foreground">
-                {formatCurrency(product.purchasePrice)}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                Selling Price
-              </p>
-              <p className="text-base font-bold text-green-600">
-                {formatCurrency(product.sellingPrice)}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                Status
-              </p>
+              <p className="mb-1 text-sm font-medium text-muted-foreground">Status</p>
               <p className="text-base font-semibold text-foreground">
                 {product.status === 'ACTIVE' ? 'Active' : 'Inactive'}
               </p>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                Created Date
-              </p>
-              <p className="text-base font-semibold text-foreground">
-                {product.createdAt
-                  ? new Date(product.createdAt).toLocaleDateString()
-                  : 'N/A'}
-              </p>
+              <p className="mb-1 text-sm font-medium text-muted-foreground">Variants</p>
+              <p className="text-base font-semibold text-foreground">{product.variants.length}</p>
             </div>
           </div>
+          {product.description && (
+            <div className="mt-4">
+              <p className="mb-1 text-sm font-medium text-muted-foreground">Description</p>
+              <p className="text-base text-foreground">{product.description}</p>
+            </div>
+          )}
         </div>
 
-        {product.description && (
-          <div className="rounded-lg border border-border/50 bg-secondary/20 p-4">
-            <h4 className="font-semibold text-foreground mb-3">Description</h4>
-            <p className="text-base text-foreground">{product.description}</p>
+        <div className="rounded-lg border border-border/50 bg-secondary/20 p-4">
+          <h4 className="mb-3 font-semibold text-foreground">Variants</h4>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-muted-foreground">
+                  <th className="py-2 font-medium">Variant</th>
+                  <th className="py-2 font-medium">SKU</th>
+                  <th className="py-2 font-medium">Unit</th>
+                  <th className="py-2 text-right font-medium">Purchase</th>
+                  <th className="py-2 text-right font-medium">Selling</th>
+                </tr>
+              </thead>
+              <tbody>
+                {product.variants.map((v) => (
+                  <tr key={v.id} className="border-b border-border/40">
+                    <td className="py-2 font-medium text-foreground">{v.name}</td>
+                    <td className="py-2 font-mono text-xs text-muted-foreground">{v.sku}</td>
+                    <td className="py-2">{unitLabel(v.unit)}</td>
+                    <td className="py-2 text-right">{formatCurrency(v.purchasePrice)}</td>
+                    <td className="py-2 text-right font-semibold text-green-600">
+                      {formatCurrency(v.sellingPrice)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
+        </div>
       </div>
     </GenericViewModal>
   )

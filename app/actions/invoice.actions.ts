@@ -42,6 +42,7 @@ export type InvoiceListDTO = {
 export type InvoiceItemDTO = {
   id: string;
   productName: string;
+  variantName: string;
   productSku: string;
   unit: string;
   quantity: number;
@@ -64,22 +65,6 @@ export type InvoiceDetailDTO = InvoiceListDTO & {
   adjustmentTotal: number;
   items: InvoiceItemDTO[];
   collections: InvoiceCollectionDTO[];
-};
-
-// Un-invoiced supply shown in the "generate invoice" dropdown.
-export type UninvoicedSupplyDTO = {
-  id: string;
-  supplyNo: string;
-  companyName: string;
-  grandTotal: number;
-};
-
-export type GenerateInvoiceInput = {
-  supplyId: string;
-  invoiceDate: string;
-  dueDate: string;
-  status: InvoiceStatus;
-  notes?: string;
 };
 
 export type UpdateInvoiceInput = {
@@ -121,14 +106,6 @@ function validateDates(input: { invoiceDate: string; dueDate: string }) {
 function validateStatus(status: InvoiceStatus) {
   if (!INVOICE_STATUS_OPTIONS.includes(status))
     throw new Error("Invalid invoice status");
-}
-
-// INV-0001, INV-0002, ...
-async function nextInvoiceNo(
-  tx: Pick<typeof prisma, "invoice">
-): Promise<string> {
-  const count = await tx.invoice.count();
-  return `INV-${String(count + 1).padStart(4, "0")}`;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -222,7 +199,14 @@ export async function getInvoice(id: string): Promise<InvoiceDetailDTO> {
           supplyNo: true,
           items: {
             include: {
-              product: { select: { name: true, sku: true, unit: true } },
+              variant: {
+                select: {
+                  name: true,
+                  sku: true,
+                  unit: true,
+                  product: { select: { name: true } },
+                },
+              },
             },
           },
         },
@@ -241,9 +225,10 @@ export async function getInvoice(id: string): Promise<InvoiceDetailDTO> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     items: inv.supply.items.map((it: any) => ({
       id: it.id,
-      productName: it.product.name,
-      productSku: it.product.sku,
-      unit: it.product.unit,
+      productName: it.variant.product.name,
+      variantName: it.variant.name,
+      productSku: it.variant.sku,
+      unit: it.variant.unit,
       quantity: Number(it.quantity),
       unitPrice: Number(it.unitPrice),
       total: Number(it.total),
@@ -259,78 +244,6 @@ export async function getInvoice(id: string): Promise<InvoiceDetailDTO> {
       createdByName: c.createdBy.username,
     })),
   };
-}
-
-export async function getUninvoicedSupplies(): Promise<UninvoicedSupplyDTO[]> {
-  await requireSession();
-  const supplies = await prisma.supply.findMany({
-    where: { invoiceGenerated: false, status: { not: "CANCELLED" } },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      supplyNo: true,
-      grandTotal: true,
-      company: { select: { companyName: true } },
-    },
-  });
-  return supplies.map((s) => ({
-    id: s.id,
-    supplyNo: s.supplyNo,
-    companyName: s.company.companyName,
-    grandTotal: Number(s.grandTotal),
-  }));
-}
-
-export async function generateInvoice(
-  input: GenerateInvoiceInput
-): Promise<InvoiceListDTO> {
-  const session = await requireSession();
-
-  if (!input.supplyId) throw new Error("Select a supply to invoice");
-  const { invoiceDate, dueDate } = validateDates(input);
-  validateStatus(input.status);
-
-  const created = await prisma.$transaction(async (tx) => {
-    const supply = await tx.supply.findUnique({
-      where: { id: input.supplyId },
-      select: {
-        companyId: true,
-        grandTotal: true,
-        invoiceGenerated: true,
-      },
-    });
-    if (!supply) throw new Error("Supply not found");
-    if (supply.invoiceGenerated)
-      throw new Error("This supply has already been invoiced");
-
-    const invoiceNo = await nextInvoiceNo(tx);
-
-    const invoice = await tx.invoice.create({
-      data: {
-        invoiceNo,
-        supplyId: input.supplyId,
-        companyId: supply.companyId,
-        invoiceDate,
-        dueDate,
-        totalAmount: supply.grandTotal,
-        status: input.status,
-        notes: input.notes?.trim() || null,
-        createdById: session.id,
-      },
-      include: listInclude,
-    });
-
-    await tx.supply.update({
-      where: { id: input.supplyId },
-      data: { invoiceGenerated: true },
-    });
-
-    return invoice;
-  });
-
-  revalidatePath("/invoices");
-  revalidatePath("/supplies");
-  return toListDTO(created);
 }
 
 export async function updateInvoice(
@@ -356,39 +269,4 @@ export async function updateInvoice(
 
   revalidatePath("/invoices");
   return toListDTO(updated);
-}
-
-export async function deleteInvoice(id: string): Promise<{ success: true }> {
-  await requireSession();
-  if (!id) throw new Error("Invoice id is required");
-
-  const inv = await prisma.invoice.findUnique({
-    where: { id },
-    select: {
-      supplyId: true,
-      _count: { select: { collections: true, adjustments: true } },
-    },
-  });
-  if (!inv) throw new Error("Invoice not found");
-  if (inv._count.collections > 0)
-    throw new Error(
-      "This invoice has recorded collections and cannot be deleted"
-    );
-  if (inv._count.adjustments > 0)
-    throw new Error(
-      "This invoice has adjustments and cannot be deleted"
-    );
-
-  await prisma.$transaction(async (tx) => {
-    await tx.invoice.delete({ where: { id } });
-    // Free the supply so it can be invoiced again.
-    await tx.supply.update({
-      where: { id: inv.supplyId },
-      data: { invoiceGenerated: false },
-    });
-  });
-
-  revalidatePath("/invoices");
-  revalidatePath("/supplies");
-  return { success: true };
 }

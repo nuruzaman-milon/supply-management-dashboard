@@ -28,34 +28,25 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
-  GenerateInvoiceModal,
   EditInvoiceModal,
   ViewInvoiceModal,
-  DeleteInvoiceModal,
   statusBadgeVariant,
   statusLabel,
 } from '@/components/invoices-modals'
 import {
-  Plus,
   Search,
   MoreHorizontal,
   Eye,
   Edit2,
-  Trash2,
   FileText,
 } from 'lucide-react'
 import {
   getInvoices,
   getInvoice,
-  getUninvoicedSupplies,
-  generateInvoice,
   updateInvoice,
-  deleteInvoice,
   type InvoiceListDTO,
   type InvoiceDetailDTO,
-  type GenerateInvoiceInput,
   type UpdateInvoiceInput,
-  type UninvoicedSupplyDTO,
 } from '@/app/actions/invoice.actions'
 
 const ITEMS_PER_PAGE = 10
@@ -72,9 +63,6 @@ const STATUS_FILTERS = [
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<InvoiceListDTO[]>([])
-  const [uninvoicedSupplies, setUninvoicedSupplies] = useState<
-    UninvoicedSupplyDTO[]
-  >([])
 
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -83,19 +71,15 @@ export default function InvoicesPage() {
   const [isFetching, setIsFetching] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
 
-  const [generateModalOpen, setGenerateModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [viewModalOpen, setViewModalOpen] = useState(false)
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [selected, setSelected] = useState<InvoiceDetailDTO | null>(null)
 
   useEffect(() => {
     let active = true
-    Promise.all([getInvoices(), getUninvoicedSupplies()])
-      .then(([invoiceData, supplyData]) => {
-        if (!active) return
-        setInvoices(invoiceData)
-        setUninvoicedSupplies(supplyData)
+    getInvoices()
+      .then((data) => {
+        if (active) setInvoices(data)
       })
       .catch((error) => {
         console.error('Failed to load invoices', error)
@@ -130,23 +114,6 @@ export default function InvoicesPage() {
   const formatAmount = (amount: number) =>
     '৳' + new Intl.NumberFormat('en-BD', { minimumFractionDigits: 0 }).format(amount)
 
-  // ---- Handlers ----
-  const handleGenerate = async (data: GenerateInvoiceInput) => {
-    setIsSaving(true)
-    try {
-      const created = await generateInvoice(data)
-      setInvoices((prev) => [created, ...prev])
-      // The supply is now invoiced — drop it from the dropdown.
-      setUninvoicedSupplies((prev) => prev.filter((s) => s.id !== data.supplyId))
-      setGenerateModalOpen(false)
-    } catch (error) {
-      console.error('Failed to generate invoice', error)
-      alert((error as Error).message || 'Failed to generate invoice')
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
   const handleEdit = async (data: UpdateInvoiceInput) => {
     if (!selected) return
     setIsSaving(true)
@@ -163,35 +130,13 @@ export default function InvoicesPage() {
     }
   }
 
-  const handleDelete = async () => {
-    if (!selected) return
-    setIsSaving(true)
-    try {
-      await deleteInvoice(selected.id)
-      setInvoices((prev) => prev.filter((i) => i.id !== selected.id))
-      // Freed supply becomes invoiceable again — refresh the dropdown.
-      await getUninvoicedSupplies().then(setUninvoicedSupplies).catch(() => {})
-      setDeleteModalOpen(false)
-      setSelected(null)
-    } catch (error) {
-      console.error('Failed to delete invoice', error)
-      alert((error as Error).message || 'Failed to delete invoice')
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  // View/Edit/Delete need the full detail (line items, notes).
-  const openWithDetail = async (
-    id: string,
-    which: 'view' | 'edit' | 'delete'
-  ) => {
+  // View/Edit need the full detail (line items, collections, notes).
+  const openWithDetail = async (id: string, which: 'view' | 'edit') => {
     try {
       const detail = await getInvoice(id)
       setSelected(detail)
       if (which === 'view') setViewModalOpen(true)
-      else if (which === 'edit') setEditModalOpen(true)
-      else setDeleteModalOpen(true)
+      else setEditModalOpen(true)
     } catch (error) {
       console.error('Failed to load invoice', error)
       alert((error as Error).message || 'Failed to load invoice')
@@ -202,17 +147,11 @@ export default function InvoicesPage() {
     <DashboardLayout title="Invoices">
       <div className="space-y-6 p-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Invoices</h1>
-            <p className="text-sm text-muted-foreground">
-              Manage and track all invoices ({filteredInvoices.length})
-            </p>
-          </div>
-          <Button className="gap-2" onClick={() => setGenerateModalOpen(true)}>
-            <Plus className="size-4" />
-            Generate Invoice
-          </Button>
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Invoices</h1>
+          <p className="text-sm text-muted-foreground">
+            Invoices are created automatically with each supply ({filteredInvoices.length})
+          </p>
         </div>
 
         {/* Filters */}
@@ -298,7 +237,7 @@ export default function InvoicesPage() {
                 <p className="mt-2 text-sm text-muted-foreground">
                   {searchTerm || statusFilter !== 'all'
                     ? 'Try adjusting your filters or search query'
-                    : 'Generate an invoice from a supply to get started'}
+                    : 'Create a supply to generate its invoice'}
                 </p>
               </div>
             </div>
@@ -372,13 +311,6 @@ export default function InvoicesPage() {
                             <Edit2 className="size-4" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="gap-2 cursor-pointer text-destructive focus:text-destructive"
-                            onClick={() => openWithDetail(invoice.id, 'delete')}
-                          >
-                            <Trash2 className="size-4" />
-                            Delete
-                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -430,14 +362,6 @@ export default function InvoicesPage() {
         )}
 
         {/* Modals */}
-        <GenerateInvoiceModal
-          open={generateModalOpen}
-          onOpenChange={setGenerateModalOpen}
-          supplies={uninvoicedSupplies}
-          onSubmit={handleGenerate}
-          isLoading={isSaving}
-        />
-
         <EditInvoiceModal
           open={editModalOpen}
           onOpenChange={setEditModalOpen}
@@ -450,14 +374,6 @@ export default function InvoicesPage() {
           open={viewModalOpen}
           onOpenChange={setViewModalOpen}
           invoice={selected}
-        />
-
-        <DeleteInvoiceModal
-          open={deleteModalOpen}
-          onOpenChange={setDeleteModalOpen}
-          invoice={selected}
-          onConfirm={handleDelete}
-          isLoading={isSaving}
         />
       </div>
     </DashboardLayout>

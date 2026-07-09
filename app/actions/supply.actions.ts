@@ -17,6 +17,7 @@ export type SupplyListDTO = {
   id: string;
   supplyNo: string;
   supplyDate: string;
+  dueDate: string;
   companyId: string;
   companyName: string;
   itemCount: number;
@@ -24,14 +25,16 @@ export type SupplyListDTO = {
   grandTotal: number;
   status: SupplyStatus;
   invoiceGenerated: boolean;
+  invoiceNo: string;
   createdByName: string;
   createdAt: string;
 };
 
 export type SupplyItemDTO = {
   id: string;
-  productId: string;
+  variantId: string;
   productName: string;
+  variantName: string;
   productSku: string;
   unit: string;
   quantity: number;
@@ -51,7 +54,7 @@ export type SupplyDetailDTO = SupplyListDTO & {
 };
 
 export type SupplyItemInput = {
-  productId: string;
+  variantId: string;
   quantity: number;
   unitPrice: number;
 };
@@ -59,6 +62,7 @@ export type SupplyItemInput = {
 export type SupplyInput = {
   companyId: string;
   supplyDate: string;
+  dueDate: string;
   status: SupplyStatus;
   discountType: DiscountKind;
   discountValue: number;
@@ -74,6 +78,10 @@ const STATUS_VALUES: SupplyStatus[] = [
   "PARTIAL_DELIVERED",
   "CANCELLED",
 ];
+
+// Give the interactive transaction room to acquire a pool connection under
+// load (default maxWait is only 2s) before failing.
+const TX_OPTS = { maxWait: 15_000, timeout: 20_000 };
 
 function round2(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -93,7 +101,7 @@ function computeTotals(input: SupplyInput) {
     const quantity = Number(it.quantity);
     const unitPrice = Number(it.unitPrice);
     return {
-      productId: it.productId,
+      variantId: it.variantId,
       quantity,
       unitPrice,
       total: round2(quantity * unitPrice),
@@ -109,8 +117,10 @@ function computeTotals(input: SupplyInput) {
     discountAmount = round2(Number(input.discountValue));
   }
 
+  // Supply expense is the admin's own cost (borne by us, not billed to the
+  // customer), so it is stored but NOT part of the grand total / invoice.
   const supplyExpense = round2(Number(input.supplyExpense) || 0);
-  const grandTotal = round2(subtotal - discountAmount + supplyExpense);
+  const grandTotal = round2(subtotal - discountAmount);
 
   return { items, subtotal, discountAmount, supplyExpense, grandTotal };
 }
@@ -124,6 +134,11 @@ function validate(input: SupplyInput) {
   if (Number.isNaN(supplyDate.getTime()))
     throw new Error("Supply date is invalid");
 
+  if (!input.dueDate) throw new Error("Payment due date is required");
+  const dueDate = new Date(input.dueDate);
+  if (Number.isNaN(dueDate.getTime()))
+    throw new Error("Payment due date is invalid");
+
   if (!STATUS_VALUES.includes(input.status))
     throw new Error("Invalid supply status");
 
@@ -131,8 +146,8 @@ function validate(input: SupplyInput) {
     throw new Error("Add at least one product line item");
 
   for (const [i, it] of input.items.entries()) {
-    if (!it.productId?.trim())
-      throw new Error(`Select a product for line ${i + 1}`);
+    if (!it.variantId?.trim())
+      throw new Error(`Select a product variant for line ${i + 1}`);
     if (!Number.isFinite(Number(it.quantity)) || Number(it.quantity) <= 0)
       throw new Error(`Quantity must be greater than 0 on line ${i + 1}`);
     if (!Number.isFinite(Number(it.unitPrice)) || Number(it.unitPrice) < 0)
@@ -149,7 +164,7 @@ function validate(input: SupplyInput) {
   if (Number(input.supplyExpense) < 0)
     throw new Error("Supply expense cannot be negative");
 
-  return { companyId, supplyDate };
+  return { companyId, supplyDate, dueDate };
 }
 
 // SUP-0001, SUP-0002, ... based on the current row count.
@@ -160,11 +175,20 @@ async function nextSupplyNo(
   return `SUP-${String(count + 1).padStart(4, "0")}`;
 }
 
+// INV-0001, INV-0002, ... (mirrors invoice.actions; a supply auto-creates its invoice).
+async function nextInvoiceNo(
+  tx: Pick<typeof prisma, "invoice">
+): Promise<string> {
+  const count = await tx.invoice.count();
+  return `INV-${String(count + 1).padStart(4, "0")}`;
+}
+
 function listSelect() {
   return {
     id: true,
     supplyNo: true,
     supplyDate: true,
+    dueDate: true,
     companyId: true,
     subtotal: true,
     grandTotal: true,
@@ -173,6 +197,7 @@ function listSelect() {
     createdAt: true,
     company: { select: { companyName: true } },
     createdBy: { select: { username: true } },
+    invoice: { select: { invoiceNo: true } },
     _count: { select: { items: true } },
   } as const;
 }
@@ -183,6 +208,7 @@ function toListDTO(s: any): SupplyListDTO {
     id: s.id,
     supplyNo: s.supplyNo,
     supplyDate: s.supplyDate.toISOString(),
+    dueDate: s.dueDate.toISOString(),
     companyId: s.companyId,
     companyName: s.company.companyName,
     itemCount: s._count.items,
@@ -190,6 +216,7 @@ function toListDTO(s: any): SupplyListDTO {
     grandTotal: Number(s.grandTotal),
     status: s.status,
     invoiceGenerated: s.invoiceGenerated,
+    invoiceNo: s.invoice?.invoiceNo ?? "",
     createdByName: s.createdBy.username,
     createdAt: s.createdAt.toISOString(),
   };
@@ -215,9 +242,17 @@ export async function getSupply(id: string): Promise<SupplyDetailDTO> {
     include: {
       company: { select: { companyName: true } },
       createdBy: { select: { username: true } },
+      invoice: { select: { invoiceNo: true } },
       items: {
         include: {
-          product: { select: { name: true, sku: true, unit: true } },
+          variant: {
+            select: {
+              name: true,
+              sku: true,
+              unit: true,
+              product: { select: { name: true } },
+            },
+          },
         },
       },
     },
@@ -236,6 +271,7 @@ export async function getSupply(id: string): Promise<SupplyDetailDTO> {
     id: s.id,
     supplyNo: s.supplyNo,
     supplyDate: s.supplyDate.toISOString(),
+    dueDate: s.dueDate.toISOString(),
     companyId: s.companyId,
     companyName: s.company.companyName,
     itemCount: s.items.length,
@@ -243,6 +279,7 @@ export async function getSupply(id: string): Promise<SupplyDetailDTO> {
     grandTotal: Number(s.grandTotal),
     status: s.status,
     invoiceGenerated: s.invoiceGenerated,
+    invoiceNo: s.invoice?.invoiceNo ?? "",
     createdByName: s.createdBy.username,
     createdAt: s.createdAt.toISOString(),
     discountType: s.discountType,
@@ -253,10 +290,11 @@ export async function getSupply(id: string): Promise<SupplyDetailDTO> {
     remarks: s.remarks ?? "",
     items: s.items.map((it) => ({
       id: it.id,
-      productId: it.productId,
-      productName: it.product.name,
-      productSku: it.product.sku,
-      unit: it.product.unit,
+      variantId: it.variantId,
+      productName: it.variant.product.name,
+      variantName: it.variant.name,
+      productSku: it.variant.sku,
+      unit: it.variant.unit,
       quantity: Number(it.quantity),
       unitPrice: Number(it.unitPrice),
       total: Number(it.total),
@@ -267,17 +305,18 @@ export async function getSupply(id: string): Promise<SupplyDetailDTO> {
 export async function createSupply(input: SupplyInput): Promise<SupplyListDTO> {
   const session = await requireSession();
 
-  const { companyId, supplyDate } = validate(input);
+  const { companyId, supplyDate, dueDate } = validate(input);
   const { items, subtotal, supplyExpense, grandTotal } = computeTotals(input);
 
   const created = await prisma.$transaction(async (tx) => {
     const supplyNo = await nextSupplyNo(tx);
 
-    return tx.supply.create({
+    const supply = await tx.supply.create({
       data: {
         supplyNo,
         companyId,
         supplyDate,
+        dueDate,
         subtotal,
         discountType:
           input.discountType === "NONE" ? null : input.discountType,
@@ -287,22 +326,63 @@ export async function createSupply(input: SupplyInput): Promise<SupplyListDTO> {
         grandTotal,
         remarks: input.remarks?.trim() || null,
         status: input.status,
+        invoiceGenerated: true,
         createdById: session.id,
         items: {
           create: items.map((it) => ({
-            productId: it.productId,
+            variantId: it.variantId,
             quantity: it.quantity,
             unitPrice: it.unitPrice,
             total: it.total,
           })),
         },
       },
+      select: { id: true },
+    });
+
+    // Auto-create the linked invoice (1:1). invoiceDate = supplyDate,
+    // dueDate = the payment due date entered on the supply.
+    const invoiceNo = await nextInvoiceNo(tx);
+    await tx.invoice.create({
+      data: {
+        invoiceNo,
+        supplyId: supply.id,
+        companyId,
+        invoiceDate: supplyDate,
+        dueDate,
+        totalAmount: grandTotal,
+        status: "UNPAID",
+        createdById: session.id,
+      },
+    });
+
+    return tx.supply.findUniqueOrThrow({
+      where: { id: supply.id },
       select: listSelect(),
     });
-  });
+  }, TX_OPTS);
 
   revalidatePath("/supplies");
+  revalidatePath("/invoices");
   return toListDTO(created);
+}
+
+// A supply can be edited/deleted only until money is recorded against its
+// invoice (a collection or an adjustment). Returns a blocking error string or null.
+async function paymentLock(
+  tx: Pick<typeof prisma, "invoice">,
+  supplyId: string
+): Promise<string | null> {
+  const invoice = await tx.invoice.findUnique({
+    where: { supplyId },
+    select: { _count: { select: { collections: true, adjustments: true } } },
+  });
+  if (!invoice) return null;
+  if (invoice._count.collections > 0)
+    return "This supply's invoice has recorded collections and can't be changed.";
+  if (invoice._count.adjustments > 0)
+    return "This supply's invoice has adjustments and can't be changed.";
+  return null;
 }
 
 export async function updateSupply(
@@ -314,24 +394,26 @@ export async function updateSupply(
 
   const existing = await prisma.supply.findUnique({
     where: { id },
-    select: { invoiceGenerated: true },
+    select: { id: true },
   });
   if (!existing) throw new Error("Supply not found");
-  if (existing.invoiceGenerated)
-    throw new Error("This supply has an invoice and can no longer be edited");
 
-  const { companyId, supplyDate } = validate(input);
+  const { companyId, supplyDate, dueDate } = validate(input);
   const { items, subtotal, supplyExpense, grandTotal } = computeTotals(input);
 
   const updated = await prisma.$transaction(async (tx) => {
+    const lock = await paymentLock(tx, id);
+    if (lock) throw new Error(lock);
+
     // Replace line items wholesale — simplest correct approach for an edit.
     await tx.supplyItem.deleteMany({ where: { supplyId: id } });
 
-    return tx.supply.update({
+    const supply = await tx.supply.update({
       where: { id },
       data: {
         companyId,
         supplyDate,
+        dueDate,
         subtotal,
         discountType:
           input.discountType === "NONE" ? null : input.discountType,
@@ -343,7 +425,7 @@ export async function updateSupply(
         status: input.status,
         items: {
           create: items.map((it) => ({
-            productId: it.productId,
+            variantId: it.variantId,
             quantity: it.quantity,
             unitPrice: it.unitPrice,
             total: it.total,
@@ -352,9 +434,23 @@ export async function updateSupply(
       },
       select: listSelect(),
     });
-  });
+
+    // Keep the linked invoice in sync (no payments exist, so status stays UNPAID).
+    await tx.invoice.update({
+      where: { supplyId: id },
+      data: {
+        companyId,
+        invoiceDate: supplyDate,
+        dueDate,
+        totalAmount: grandTotal,
+      },
+    });
+
+    return supply;
+  }, TX_OPTS);
 
   revalidatePath("/supplies");
+  revalidatePath("/invoices");
   return toListDTO(updated);
 }
 
@@ -364,17 +460,22 @@ export async function deleteSupply(id: string): Promise<{ success: true }> {
 
   const existing = await prisma.supply.findUnique({
     where: { id },
-    select: { invoiceGenerated: true },
+    select: { id: true },
   });
   if (!existing) throw new Error("Supply not found");
-  if (existing.invoiceGenerated)
-    throw new Error("This supply has an invoice and cannot be deleted");
 
   await prisma.$transaction(async (tx) => {
+    const lock = await paymentLock(tx, id);
+    if (lock)
+      throw new Error(lock.replace("can't be changed", "can't be deleted"));
+
+    // Delete the linked invoice first (1:1), then the supply's items, then the supply.
+    await tx.invoice.deleteMany({ where: { supplyId: id } });
     await tx.supplyItem.deleteMany({ where: { supplyId: id } });
     await tx.supply.delete({ where: { id } });
-  });
+  }, TX_OPTS);
 
   revalidatePath("/supplies");
+  revalidatePath("/invoices");
   return { success: true };
 }

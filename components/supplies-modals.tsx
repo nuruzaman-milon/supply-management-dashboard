@@ -23,12 +23,17 @@ import type {
 } from '@/app/actions/supply.actions'
 
 export type CompanyOption = { id: string; name: string }
-export type ProductOption = {
+export type VariantOption = {
   id: string
   name: string
   sku: string
   unit: string
   sellingPrice: number
+}
+export type ProductOption = {
+  id: string
+  name: string
+  variants: VariantOption[]
 }
 
 const STATUS_OPTIONS: { value: SupplyStatus; label: string }[] = [
@@ -66,7 +71,12 @@ function statusLabel(status: SupplyStatus) {
 
 // ---- Form ----------------------------------------------------------------
 
-type LineRow = { productId: string; quantity: string; unitPrice: string }
+type LineRow = {
+  productId: string
+  variantId: string
+  quantity: string
+  unitPrice: string
+}
 
 interface SupplyFormProps {
   supply?: SupplyDetailDTO
@@ -92,15 +102,28 @@ function SupplyForm({
   const [supplyDate, setSupplyDate] = useState(
     supply ? supply.supplyDate.split('T')[0] : todayISO()
   )
+  const [dueDate, setDueDate] = useState(
+    supply ? supply.dueDate.split('T')[0] : todayISO()
+  )
   const [status, setStatus] = useState<SupplyStatus>(supply?.status || 'PENDING')
+  // variantId -> { productId, variant } so we can resolve a saved item's product.
+  const variantIndex = useMemo(() => {
+    const map = new Map<string, { productId: string; variant: VariantOption }>()
+    for (const p of products) {
+      for (const v of p.variants) map.set(v.id, { productId: p.id, variant: v })
+    }
+    return map
+  }, [products])
+
   const [rows, setRows] = useState<LineRow[]>(
     supply && supply.items.length
       ? supply.items.map((it) => ({
-          productId: it.productId,
+          productId: variantIndex.get(it.variantId)?.productId || '',
+          variantId: it.variantId,
           quantity: String(it.quantity),
           unitPrice: String(it.unitPrice),
         }))
-      : [{ productId: '', quantity: '1', unitPrice: '' }]
+      : [{ productId: '', variantId: '', quantity: '1', unitPrice: '' }]
   )
   const [discountType, setDiscountType] = useState<DiscountKind>(
     supply?.discountType || 'NONE'
@@ -127,17 +150,25 @@ function SupplyForm({
     )
   }
 
+  // Picking a product resets the variant + price (variant drives the price).
   const handleProductChange = (index: number, productId: string) => {
-    const product = productMap.get(productId)
+    updateRow(index, { productId, variantId: '', unitPrice: '' })
+  }
+
+  // Picking a variant auto-fills its selling price (editable).
+  const handleVariantChange = (index: number, variantId: string) => {
+    const variant = variantIndex.get(variantId)?.variant
     updateRow(index, {
-      productId,
-      // Auto-fill unit price from the product's selling price (editable).
-      unitPrice: product ? String(product.sellingPrice) : '',
+      variantId,
+      unitPrice: variant ? String(variant.sellingPrice) : '',
     })
   }
 
   const addRow = () =>
-    setRows((prev) => [...prev, { productId: '', quantity: '1', unitPrice: '' }])
+    setRows((prev) => [
+      ...prev,
+      { productId: '', variantId: '', quantity: '1', unitPrice: '' },
+    ])
 
   const removeRow = (index: number) =>
     setRows((prev) =>
@@ -156,13 +187,15 @@ function SupplyForm({
         ? Number(discountValue) || 0
         : 0
   const expense = Number(supplyExpense) || 0
-  const grandTotal = subtotal - discountAmount + expense
+  // Expense is the admin's own cost — not part of the customer's grand total.
+  const grandTotal = subtotal - discountAmount
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const data: SupplyInput = {
       companyId,
       supplyDate,
+      dueDate,
       status,
       discountType,
       discountValue: Number(discountValue) || 0,
@@ -170,9 +203,9 @@ function SupplyForm({
       supplyExpenseReason,
       remarks,
       items: rows
-        .filter((r) => r.productId)
+        .filter((r) => r.variantId)
         .map((r) => ({
-          productId: r.productId,
+          variantId: r.variantId,
           quantity: Number(r.quantity) || 0,
           unitPrice: Number(r.unitPrice) || 0,
         })),
@@ -220,6 +253,23 @@ function SupplyForm({
           />
         </div>
 
+        <div className="space-y-2.5">
+          <Label htmlFor="dueDate" className="text-sm font-semibold text-foreground">
+            Payment Due Date <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="dueDate"
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className={inputClass}
+            required
+          />
+          <p className="text-xs text-muted-foreground">
+            Date by which the full due must be cleared.
+          </p>
+        </div>
+
         <div className="space-y-2.5 sm:col-span-2">
           <Label htmlFor="status" className="text-sm font-semibold text-foreground">
             Status <span className="text-destructive">*</span>
@@ -253,21 +303,24 @@ function SupplyForm({
         <div className="space-y-2 rounded-lg border-2 border-border bg-card p-3">
           {/* Column labels */}
           <div className="hidden grid-cols-12 gap-2 px-1 text-xs font-medium text-muted-foreground sm:grid">
-            <div className="col-span-5">Product</div>
+            <div className="col-span-3">Product</div>
+            <div className="col-span-3">Variant</div>
             <div className="col-span-2 text-right">Qty</div>
             <div className="col-span-2 text-right">Unit Price</div>
-            <div className="col-span-2 text-right">Total</div>
+            <div className="col-span-1 text-right">Total</div>
             <div className="col-span-1" />
           </div>
 
           {rows.map((row, index) => {
             const product = productMap.get(row.productId)
+            const variant = variantIndex.get(row.variantId)?.variant
             return (
               <div
                 key={index}
                 className="grid grid-cols-12 items-center gap-2 rounded-md bg-secondary/20 p-2 sm:bg-transparent sm:p-0"
               >
-                <div className="col-span-12 sm:col-span-5">
+                {/* Product */}
+                <div className="col-span-12 sm:col-span-3">
                   <select
                     value={row.productId}
                     onChange={(e) => handleProductChange(index, e.target.value)}
@@ -279,13 +332,32 @@ function SupplyForm({
                     </option>
                     {products.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.name} ({p.sku})
+                        {p.name}
                       </option>
                     ))}
                   </select>
-                  {product && (
+                </div>
+                {/* Variant */}
+                <div className="col-span-12 sm:col-span-3">
+                  <select
+                    value={row.variantId}
+                    onChange={(e) => handleVariantChange(index, e.target.value)}
+                    required
+                    disabled={!row.productId}
+                    className={selectClass}
+                  >
+                    <option value="" disabled>
+                      {row.productId ? 'Select variant' : 'Pick product first'}
+                    </option>
+                    {product?.variants.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name} ({v.sku})
+                      </option>
+                    ))}
+                  </select>
+                  {variant && (
                     <p className="mt-1 px-1 text-xs text-muted-foreground">
-                      Unit: {unitLabel(product.unit)}
+                      Unit: {unitLabel(variant.unit)}
                     </p>
                   )}
                 </div>
@@ -313,7 +385,7 @@ function SupplyForm({
                     required
                   />
                 </div>
-                <div className="col-span-3 text-right text-sm font-semibold sm:col-span-2">
+                <div className="col-span-3 text-right text-sm font-semibold sm:col-span-1">
                   {formatCurrency(lineTotals[index] || 0)}
                 </div>
                 <div className="col-span-1 flex justify-end">
@@ -422,14 +494,18 @@ function SupplyForm({
               − {formatCurrency(discountAmount)}
             </span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Expense</span>
-            <span className="font-medium">+ {formatCurrency(expense)}</span>
-          </div>
           <div className="flex justify-between border-t border-border pt-1.5 text-base font-bold">
             <span>Grand Total</span>
             <span className="text-green-600">{formatCurrency(grandTotal)}</span>
           </div>
+          {expense > 0 && (
+            <div className="mt-2 flex justify-between border-t border-dashed border-border pt-2 text-xs">
+              <span className="text-muted-foreground">
+                Supply expense (your cost, not billed)
+              </span>
+              <span className="text-muted-foreground">{formatCurrency(expense)}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -557,6 +633,12 @@ export function ViewSupplyModal({
             </p>
           </div>
           <div>
+            <p className="mb-1 text-sm font-medium text-muted-foreground">Payment Due Date</p>
+            <p className="text-base font-semibold text-foreground">
+              {new Date(supply.dueDate).toLocaleDateString()}
+            </p>
+          </div>
+          <div>
             <p className="mb-1 text-sm font-medium text-muted-foreground">Status</p>
             <Badge variant={statusVariant(supply.status)}>
               {statusLabel(supply.status)}
@@ -564,9 +646,9 @@ export function ViewSupplyModal({
           </div>
           <div>
             <p className="mb-1 text-sm font-medium text-muted-foreground">Invoice</p>
-            <Badge variant={supply.invoiceGenerated ? 'default' : 'secondary'}>
-              {supply.invoiceGenerated ? 'Generated' : 'Pending'}
-            </Badge>
+            <p className="font-mono text-base font-semibold text-foreground">
+              {supply.invoiceNo || '—'}
+            </p>
           </div>
           <div>
             <p className="mb-1 text-sm font-medium text-muted-foreground">Created By</p>
@@ -594,6 +676,7 @@ export function ViewSupplyModal({
                   <tr key={it.id} className="border-b border-border/40">
                     <td className="py-2">
                       <span className="font-medium text-foreground">{it.productName}</span>
+                      <span className="ml-1 text-muted-foreground">— {it.variantName}</span>
                       <span className="ml-2 font-mono text-xs text-muted-foreground">
                         {it.productSku}
                       </span>
@@ -630,14 +713,20 @@ export function ViewSupplyModal({
                 − {formatCurrency(supply.discountAmount)}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Expense</span>
-              <span className="font-medium">+ {formatCurrency(supply.supplyExpense)}</span>
-            </div>
             <div className="flex justify-between border-t border-border pt-1.5 text-base font-bold">
               <span>Grand Total</span>
               <span className="text-green-600">{formatCurrency(supply.grandTotal)}</span>
             </div>
+            {supply.supplyExpense > 0 && (
+              <div className="mt-2 flex justify-between border-t border-dashed border-border pt-2 text-xs">
+                <span className="text-muted-foreground">
+                  Supply expense (your cost, not billed)
+                </span>
+                <span className="text-muted-foreground">
+                  {formatCurrency(supply.supplyExpense)}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -8,17 +8,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import {
-  GenericAddModal,
   GenericEditModal,
   GenericViewModal,
-  GenericDeleteModal,
 } from '@/components/generic-modals'
 import type {
   InvoiceDetailDTO,
   InvoiceStatus,
-  GenerateInvoiceInput,
   UpdateInvoiceInput,
-  UninvoicedSupplyDTO,
 } from '@/app/actions/invoice.actions'
 
 const STATUS_OPTIONS: { value: InvoiceStatus; label: string }[] = [
@@ -51,17 +47,6 @@ function paymentMethodLabel(method: string) {
   return PAYMENT_METHOD_LABELS[method] ?? method
 }
 
-function todayISO() {
-  return new Date().toISOString().split('T')[0]
-}
-
-// dueDate default: 30 days out from today.
-function defaultDueISO() {
-  const d = new Date()
-  d.setDate(d.getDate() + 30)
-  return d.toISOString().split('T')[0]
-}
-
 export function statusBadgeVariant(status: InvoiceStatus, isOverdue: boolean) {
   if (isOverdue) return 'destructive' as const
   switch (status) {
@@ -81,169 +66,6 @@ export function statusBadgeVariant(status: InvoiceStatus, isOverdue: boolean) {
 export function statusLabel(status: InvoiceStatus, isOverdue: boolean) {
   if (isOverdue) return 'Overdue'
   return STATUS_OPTIONS.find((s) => s.value === status)?.label ?? status
-}
-
-// ---- Generate (create) modal --------------------------------------------
-
-interface GenerateInvoiceModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  supplies: UninvoicedSupplyDTO[]
-  onSubmit: (data: GenerateInvoiceInput) => void
-  isLoading?: boolean
-}
-
-export function GenerateInvoiceModal({
-  open,
-  onOpenChange,
-  supplies,
-  onSubmit,
-  isLoading = false,
-}: GenerateInvoiceModalProps) {
-  const [supplyId, setSupplyId] = useState('')
-  const [invoiceDate, setInvoiceDate] = useState(todayISO())
-  const [dueDate, setDueDate] = useState(defaultDueISO())
-  const [status, setStatus] = useState<InvoiceStatus>('UNPAID')
-  const [notes, setNotes] = useState('')
-
-  const supplyMap = useMemo(
-    () => new Map(supplies.map((s) => [s.id, s])),
-    [supplies]
-  )
-  const selectedSupply = supplyMap.get(supplyId)
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    onSubmit({ supplyId, invoiceDate, dueDate, status, notes })
-  }
-
-  return (
-    <GenericAddModal
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Generate Invoice"
-      description="Create an invoice from a supply. All fields marked with"
-      helpText="The invoice total is taken from the selected supply's grand total."
-    >
-      {supplies.length === 0 ? (
-        <div className="rounded-lg border border-border/50 bg-secondary/20 p-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            No un-invoiced supplies available. Create a supply first, or every
-            supply already has an invoice.
-          </p>
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-2.5">
-            <Label htmlFor="supplyId" className="text-sm font-semibold text-foreground">
-              Supply <span className="text-destructive">*</span>
-            </Label>
-            <select
-              id="supplyId"
-              value={supplyId}
-              onChange={(e) => setSupplyId(e.target.value)}
-              required
-              className={selectClass}
-            >
-              <option value="" disabled>
-                Select an un-invoiced supply
-              </option>
-              {supplies.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.supplyNo} — {s.companyName} ({formatCurrency(s.grandTotal)})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {selectedSupply && (
-            <div className="flex items-center justify-between rounded-lg border border-border/50 bg-secondary/30 p-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Invoice for</p>
-                <p className="font-semibold text-foreground">
-                  {selectedSupply.companyName}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-muted-foreground">Total Amount</p>
-                <p className="text-lg font-bold text-green-600">
-                  {formatCurrency(selectedSupply.grandTotal)}
-                </p>
-              </div>
-            </div>
-          )}
-
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div className="space-y-2.5">
-              <Label htmlFor="invoiceDate" className="text-sm font-semibold text-foreground">
-                Invoice Date <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="invoiceDate"
-                type="date"
-                value={invoiceDate}
-                onChange={(e) => setInvoiceDate(e.target.value)}
-                className={inputClass}
-                required
-              />
-            </div>
-            <div className="space-y-2.5">
-              <Label htmlFor="dueDate" className="text-sm font-semibold text-foreground">
-                Due Date <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="dueDate"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className={inputClass}
-                required
-              />
-            </div>
-            <div className="space-y-2.5">
-              <Label htmlFor="status" className="text-sm font-semibold text-foreground">
-                Status <span className="text-destructive">*</span>
-              </Label>
-              <select
-                id="status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as InvoiceStatus)}
-                className={selectClass}
-              >
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="space-y-2.5">
-            <Label htmlFor="notes" className="text-sm font-semibold text-foreground">
-              Notes
-            </Label>
-            <Textarea
-              id="notes"
-              placeholder="Any additional notes for this invoice..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-
-          <div className="flex items-center justify-between gap-3 border-t border-border pt-6">
-            <p className="text-xs text-muted-foreground">
-              <span className="text-destructive">*</span> Indicates required fields
-            </p>
-            <Button type="submit" disabled={isLoading || !supplyId} className="min-w-[140px]">
-              {isLoading ? 'Generating...' : 'Generate Invoice'}
-            </Button>
-          </div>
-        </form>
-      )}
-    </GenericAddModal>
-  )
 }
 
 // ---- Edit modal ----------------------------------------------------------
@@ -474,6 +296,7 @@ export function ViewInvoiceModal({
                   <tr key={it.id} className="border-b border-border/40">
                     <td className="py-2">
                       <span className="font-medium text-foreground">{it.productName}</span>
+                      <span className="ml-1 text-muted-foreground">— {it.variantName}</span>
                       <span className="ml-2 font-mono text-xs text-muted-foreground">
                         {it.productSku}
                       </span>
@@ -587,37 +410,5 @@ export function ViewInvoiceModal({
         )}
       </div>
     </GenericViewModal>
-  )
-}
-
-// ---- Delete modal --------------------------------------------------------
-
-interface DeleteInvoiceModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  invoice: InvoiceDetailDTO | null
-  onConfirm: () => void
-  isLoading?: boolean
-}
-
-export function DeleteInvoiceModal({
-  open,
-  onOpenChange,
-  invoice,
-  onConfirm,
-  isLoading,
-}: DeleteInvoiceModalProps) {
-  if (!invoice) return null
-
-  return (
-    <GenericDeleteModal
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Delete Invoice"
-      message="Are you sure you want to permanently delete"
-      itemName={invoice.invoiceNo}
-      onConfirm={onConfirm}
-      isLoading={isLoading}
-    />
   )
 }

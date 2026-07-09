@@ -2,51 +2,66 @@
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-
-const invoicesData = [
-  { id: 'INV001', company: 'Acme Corporation', amount: '$12,450', dueDate: '2024-02-15', status: 'Paid', issuedDate: '2024-01-15' },
-  { id: 'INV002', company: 'Tech Solutions Ltd', amount: '$8,920', dueDate: '2024-02-20', status: 'Pending', issuedDate: '2024-01-20' },
-  { id: 'INV003', company: 'Global Enterprises', amount: '$15,780', dueDate: '2024-02-10', status: 'Overdue', issuedDate: '2024-01-10' },
-  { id: 'INV004', company: 'Industry Leaders Inc', amount: '$22,340', dueDate: '2024-02-25', status: 'Paid', issuedDate: '2024-01-25' },
-  { id: 'INV005', company: 'Professional Services', amount: '$9,650', dueDate: '2024-02-18', status: 'Pending', issuedDate: '2024-01-18' },
-]
+import type { InvoiceListDTO } from '@/app/actions/invoice.actions'
 
 const statusColors: Record<string, string> = {
-  Paid: 'bg-green-100 text-green-800',
-  Pending: 'bg-amber-100 text-amber-800',
-  Overdue: 'bg-red-100 text-red-800',
-  Cancelled: 'bg-gray-100 text-gray-800',
+  PAID: 'bg-green-100 text-green-800',
+  PARTIALLY_PAID: 'bg-blue-100 text-blue-800',
+  UNPAID: 'bg-amber-100 text-amber-800',
+  DRAFT: 'bg-gray-100 text-gray-800',
+  OVERDUE: 'bg-red-100 text-red-800',
+  CANCELLED: 'bg-gray-100 text-gray-800',
 }
 
-export function RecentInvoicesTable() {
+const statusLabels: Record<string, string> = {
+  PAID: 'Paid',
+  PARTIALLY_PAID: 'Partially Paid',
+  UNPAID: 'Unpaid',
+  DRAFT: 'Draft',
+  CANCELLED: 'Cancelled',
+}
+
+function formatAmount(v: number) {
+  return '৳' + new Intl.NumberFormat('en-BD', { minimumFractionDigits: 0 }).format(v)
+}
+
+export function RecentInvoicesTable({ invoices }: { invoices: InvoiceListDTO[] }) {
+  if (invoices.length === 0) {
+    return <p className="py-8 text-center text-sm text-muted-foreground">No invoices yet</p>
+  }
+
   return (
     <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow className="border-border bg-secondary">
-            <TableHead className="font-semibold text-foreground">Invoice ID</TableHead>
+            <TableHead className="font-semibold text-foreground">Invoice No</TableHead>
             <TableHead className="font-semibold text-foreground">Company</TableHead>
             <TableHead className="text-right font-semibold text-foreground">Amount</TableHead>
+            <TableHead className="text-right font-semibold text-foreground">Due</TableHead>
             <TableHead className="font-semibold text-foreground">Status</TableHead>
             <TableHead className="font-semibold text-foreground">Due Date</TableHead>
-            <TableHead className="font-semibold text-foreground">Issued</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {invoicesData.map((invoice) => (
-            <TableRow key={invoice.id} className="border-border hover:bg-secondary/50">
-              <TableCell className="text-sm font-medium text-foreground">{invoice.id}</TableCell>
-              <TableCell className="text-sm text-muted-foreground">{invoice.company}</TableCell>
-              <TableCell className="text-right text-sm font-semibold text-foreground">{invoice.amount}</TableCell>
-              <TableCell>
-                <Badge className={statusColors[invoice.status] || 'bg-gray-100 text-gray-800'}>
-                  {invoice.status}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-sm text-muted-foreground">{invoice.dueDate}</TableCell>
-              <TableCell className="text-sm text-muted-foreground">{invoice.issuedDate}</TableCell>
-            </TableRow>
-          ))}
+          {invoices.map((invoice) => {
+            const label = invoice.isOverdue ? 'Overdue' : statusLabels[invoice.status] || invoice.status
+            const color = invoice.isOverdue ? statusColors.OVERDUE : statusColors[invoice.status] || 'bg-gray-100 text-gray-800'
+            return (
+              <TableRow key={invoice.id} className="border-border hover:bg-secondary/50">
+                <TableCell className="font-mono text-sm font-medium text-foreground">{invoice.invoiceNo}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">{invoice.companyName}</TableCell>
+                <TableCell className="text-right text-sm font-semibold text-foreground">{formatAmount(invoice.totalAmount)}</TableCell>
+                <TableCell className="text-right text-sm text-amber-600">{formatAmount(invoice.dueAmount)}</TableCell>
+                <TableCell>
+                  <Badge className={color}>{label}</Badge>
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {new Date(invoice.dueDate).toLocaleDateString()}
+                </TableCell>
+              </TableRow>
+            )
+          })}
         </TableBody>
       </Table>
     </div>

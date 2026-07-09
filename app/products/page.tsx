@@ -54,7 +54,6 @@ import {
   getCategories,
   type CategoryDTO,
 } from '@/app/actions/category.actions'
-import { unitLabel } from '@/lib/units'
 
 const ITEMS_PER_PAGE = 8
 
@@ -102,10 +101,12 @@ export default function ProductsPage() {
   )
 
   const filteredProducts = useMemo(() => {
+    const q = searchTerm.toLowerCase()
     return products.filter((product) => {
       const matchesSearch =
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.sku.toLowerCase().includes(searchTerm.toLowerCase())
+        product.name.toLowerCase().includes(q) ||
+        product.brand.toLowerCase().includes(q) ||
+        product.variants.some((v) => v.sku.toLowerCase().includes(q))
       const matchesCategory =
         categoryFilter === 'all' || product.categoryId === categoryFilter
       const matchesStatus =
@@ -114,6 +115,14 @@ export default function ProductsPage() {
       return matchesSearch && matchesCategory && matchesStatus
     })
   }, [products, searchTerm, categoryFilter, statusFilter])
+
+  const priceRange = (product: ProductDTO) => {
+    const prices = product.variants.map((v) => v.sellingPrice)
+    if (prices.length === 0) return '—'
+    const min = Math.min(...prices)
+    const max = Math.max(...prices)
+    return min === max ? formatPrice(min) : `${formatPrice(min)} – ${formatPrice(max)}`
+  }
 
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE)
   const paginatedProducts = filteredProducts.slice(
@@ -221,7 +230,7 @@ export default function ProductsPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by name or SKU..."
+                  placeholder="Search by name, brand, or variant SKU..."
                   value={searchTerm}
                   onChange={(e) => {
                     setSearchTerm(e.target.value)
@@ -332,11 +341,10 @@ export default function ProductsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Product Name</TableHead>
-                  <TableHead>SKU</TableHead>
+                  <TableHead>Brand</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead>Unit</TableHead>
-                  <TableHead className="text-right">Purchase</TableHead>
-                  <TableHead className="text-right">Selling</TableHead>
+                  <TableHead className="text-center">Variants</TableHead>
+                  <TableHead className="text-right">Price Range</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -347,16 +355,13 @@ export default function ProductsPage() {
                     <TableCell className="font-medium">
                       {product.name}
                     </TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {product.sku}
+                    <TableCell className="text-sm text-muted-foreground">
+                      {product.brand || '—'}
                     </TableCell>
                     <TableCell>{product.categoryName}</TableCell>
-                    <TableCell>{unitLabel(product.unit)}</TableCell>
-                    <TableCell className="text-right text-sm">
-                      {formatPrice(product.purchasePrice)}
-                    </TableCell>
+                    <TableCell className="text-center">{product.variants.length}</TableCell>
                     <TableCell className="text-right font-semibold">
-                      {formatPrice(product.sellingPrice)}
+                      {priceRange(product)}
                     </TableCell>
                     <TableCell>
                       <Badge

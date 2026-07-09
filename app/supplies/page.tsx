@@ -111,10 +111,18 @@ export default function SuppliesPage() {
             .map((p) => ({
               id: p.id,
               name: p.name,
-              sku: p.sku,
-              unit: p.unit,
-              sellingPrice: p.sellingPrice,
+              variants: p.variants
+                .filter((v) => v.status === 'ACTIVE')
+                .map((v) => ({
+                  id: v.id,
+                  name: v.name,
+                  sku: v.sku,
+                  unit: v.unit,
+                  sellingPrice: v.sellingPrice,
+                })),
             }))
+            // Only offer products that have at least one active variant.
+            .filter((p) => p.variants.length > 0)
         )
       })
       .catch((error) => {
@@ -351,6 +359,7 @@ export default function SuppliesPage() {
                 <TableRow>
                   <TableHead>Supply No</TableHead>
                   <TableHead>Date</TableHead>
+                  <TableHead>Due Date</TableHead>
                   <TableHead>Company</TableHead>
                   <TableHead className="text-center">Items</TableHead>
                   <TableHead className="text-right">Grand Total</TableHead>
@@ -369,6 +378,9 @@ export default function SuppliesPage() {
                     <TableCell>
                       {new Date(supply.supplyDate).toLocaleDateString()}
                     </TableCell>
+                    <TableCell>
+                      {new Date(supply.dueDate).toLocaleDateString()}
+                    </TableCell>
                     <TableCell>{supply.companyName}</TableCell>
                     <TableCell className="text-center">{supply.itemCount}</TableCell>
                     <TableCell className="text-right font-semibold">
@@ -379,10 +391,8 @@ export default function SuppliesPage() {
                         {STATUS_LABELS[supply.status]}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant={supply.invoiceGenerated ? 'default' : 'secondary'}>
-                        {supply.invoiceGenerated ? 'Generated' : 'Pending'}
-                      </Badge>
+                    <TableCell className="font-mono text-sm">
+                      {supply.invoiceNo || '—'}
                     </TableCell>
                     <TableCell className="text-sm">{supply.createdByName}</TableCell>
                     <TableCell className="text-right">
