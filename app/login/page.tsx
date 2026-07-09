@@ -193,7 +193,7 @@ export default function LoginPage() {
 
         {/* Bottom label */}
         <p className="mt-5 text-center text-xs text-muted-foreground/60">
-          © {new Date().getFullYear()} SupplyFlow · All rights reserved
+          © {new Date().getFullYear()} Aydin Bazar · All rights reserved
         </p>
       </div>
     </div>

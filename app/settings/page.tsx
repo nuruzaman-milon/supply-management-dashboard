@@ -13,13 +13,49 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs'
-import { User, Lock, CheckCircle2, AlertCircle } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  User,
+  Lock,
+  Users,
+  Plus,
+  Pencil,
+  Trash2,
+  CheckCircle2,
+  AlertCircle,
+} from 'lucide-react'
 import {
   getMyProfile,
   updateProfile,
   changePassword,
+  listUsers,
+  createUser,
+  updateUser,
+  deleteUser,
   type ProfileDTO,
 } from '@/app/actions/account.actions'
+
+const USER_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] as const
+
+const ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: 'Super Admin',
+  ADMIN: 'Admin',
+  MANAGER: 'Manager',
+}
 
 type Feedback = { type: 'success' | 'error'; message: string } | null
 
@@ -62,15 +98,30 @@ export default function SettingsPage() {
   const [savingPassword, setSavingPassword] = useState(false)
   const [passwordFeedback, setPasswordFeedback] = useState<Feedback>(null)
 
+  // Team members
+  const [users, setUsers] = useState<ProfileDTO[]>([])
+  const [showUserForm, setShowUserForm] = useState(false)
+  const [editingUserId, setEditingUserId] = useState<string | null>(null)
+  const [formUsername, setFormUsername] = useState('')
+  const [formEmail, setFormEmail] = useState('')
+  const [formPassword, setFormPassword] = useState('')
+  const [formRole, setFormRole] = useState<string>('MANAGER')
+  const [formStatus, setFormStatus] = useState<string>('ACTIVE')
+  const [savingUser, setSavingUser] = useState(false)
+  const [userFormFeedback, setUserFormFeedback] = useState<Feedback>(null)
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
+  const [teamFeedback, setTeamFeedback] = useState<Feedback>(null)
+
   useEffect(() => {
     let active = true
-    getMyProfile()
-      .then((data) => {
+    Promise.all([getMyProfile(), listUsers().catch(() => [])])
+      .then(([data, allUsers]) => {
         if (!active) return
         setProfile(data)
         setUsername(data.username)
         setEmail(data.email)
         setAvatar(data.avatar)
+        setUsers(allUsers)
       })
       .catch((error) => {
         console.error('Failed to load profile', error)
@@ -83,6 +134,106 @@ export default function SettingsPage() {
       active = false
     }
   }, [])
+
+  // Super admins and admins can manage users.
+  const isSuperAdmin = profile?.role === 'SUPER_ADMIN'
+  const canManageUsers = isSuperAdmin || profile?.role === 'ADMIN'
+  // Admins can't create/assign the super admin role — only super admins can.
+  const assignableRoles = isSuperAdmin
+    ? USER_ROLES
+    : USER_ROLES.filter((r) => r !== 'SUPER_ADMIN')
+
+  const closeUserForm = () => {
+    setShowUserForm(false)
+    setEditingUserId(null)
+    setFormUsername('')
+    setFormEmail('')
+    setFormPassword('')
+    setFormRole('MANAGER')
+    setFormStatus('ACTIVE')
+    setUserFormFeedback(null)
+  }
+
+  const openAddUser = () => {
+    closeUserForm()
+    setShowUserForm(true)
+    setTeamFeedback(null)
+  }
+
+  const openEditUser = (u: ProfileDTO) => {
+    setEditingUserId(u.id)
+    setFormUsername(u.username)
+    setFormEmail(u.email)
+    setFormPassword('')
+    setFormRole(u.role)
+    setFormStatus(u.status)
+    setUserFormFeedback(null)
+    setTeamFeedback(null)
+    setShowUserForm(true)
+  }
+
+  const handleSubmitUser = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSavingUser(true)
+    setUserFormFeedback(null)
+    try {
+      if (editingUserId) {
+        const updated = await updateUser({
+          id: editingUserId,
+          username: formUsername,
+          email: formEmail,
+          role: formRole,
+          status: formStatus,
+          password: formPassword || undefined,
+        })
+        setUsers((prev) =>
+          prev.map((u) => (u.id === updated.id ? updated : u))
+        )
+        setTeamFeedback({ type: 'success', message: 'User updated' })
+      } else {
+        const created = await createUser({
+          username: formUsername,
+          email: formEmail,
+          password: formPassword,
+          role: formRole,
+          status: formStatus,
+        })
+        setUsers((prev) => [created, ...prev])
+        setTeamFeedback({ type: 'success', message: 'User created' })
+      }
+      closeUserForm()
+    } catch (error) {
+      setUserFormFeedback({
+        type: 'error',
+        message: (error as Error).message || 'Failed to save user',
+      })
+    } finally {
+      setSavingUser(false)
+    }
+  }
+
+  const handleDeleteUser = async (u: ProfileDTO) => {
+    if (
+      !window.confirm(
+        `Delete user "${u.username}"? This action cannot be undone.`
+      )
+    )
+      return
+    setDeletingUserId(u.id)
+    setTeamFeedback(null)
+    try {
+      await deleteUser(u.id)
+      setUsers((prev) => prev.filter((x) => x.id !== u.id))
+      setTeamFeedback({ type: 'success', message: 'User deleted' })
+    } catch (error) {
+      setTeamFeedback({
+        type: 'error',
+        message: (error as Error).message || 'Failed to delete user',
+      })
+    } finally {
+      setDeletingUserId(null)
+    }
+  }
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -241,6 +392,247 @@ export default function SettingsPage() {
                     </Button>
                   </div>
                 </form>
+              </Card>
+
+              {/* Team Members */}
+              <Card className="p-6">
+                <div className="mb-6 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <Users className="size-5 text-muted-foreground" />
+                    <h3 className="text-lg font-semibold text-foreground">
+                      Team Members
+                    </h3>
+                    <Badge variant="secondary">{users.length}</Badge>
+                  </div>
+                  {canManageUsers && !showUserForm && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="gap-2"
+                      onClick={openAddUser}
+                    >
+                      <Plus className="size-4" />
+                      Add User
+                    </Button>
+                  )}
+                </div>
+
+                {teamFeedback && (
+                  <div className="mb-4">
+                    <FeedbackBanner feedback={teamFeedback} />
+                  </div>
+                )}
+
+                {/* Create / edit user form */}
+                {canManageUsers && showUserForm && (
+                  <form
+                    onSubmit={handleSubmitUser}
+                    className="mb-6 space-y-4 rounded-lg border border-border bg-muted/30 p-4"
+                  >
+                    <p className="text-sm font-semibold text-foreground">
+                      {editingUserId ? 'Edit User' : 'Add New User'}
+                    </p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="form-username">Username</Label>
+                        <Input
+                          id="form-username"
+                          value={formUsername}
+                          onChange={(e) => setFormUsername(e.target.value)}
+                          placeholder="username"
+                          required
+                          className="h-10 bg-background"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="form-email">Email</Label>
+                        <Input
+                          id="form-email"
+                          type="email"
+                          value={formEmail}
+                          onChange={(e) => setFormEmail(e.target.value)}
+                          placeholder="user@example.com"
+                          required
+                          className="h-10 bg-background"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="form-password">
+                          Password
+                          {editingUserId && (
+                            <span className="ml-1 font-normal text-muted-foreground">
+                              (leave blank to keep)
+                            </span>
+                          )}
+                        </Label>
+                        <Input
+                          id="form-password"
+                          type="password"
+                          value={formPassword}
+                          onChange={(e) => setFormPassword(e.target.value)}
+                          placeholder="At least 6 characters"
+                          autoComplete="new-password"
+                          required={!editingUserId}
+                          className="h-10 bg-background"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="form-role">Role</Label>
+                        <Select value={formRole} onValueChange={setFormRole}>
+                          <SelectTrigger id="form-role" className="h-10 bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {assignableRoles.map((role) => (
+                              <SelectItem key={role} value={role}>
+                                {ROLE_LABELS[role] ?? role}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="form-status">Status</Label>
+                        <Select value={formStatus} onValueChange={setFormStatus}>
+                          <SelectTrigger id="form-status" className="h-10 bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ACTIVE">Active</SelectItem>
+                            <SelectItem value="INACTIVE">Inactive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <FeedbackBanner feedback={userFormFeedback} />
+
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={closeUserForm}
+                      >
+                        Cancel
+                      </Button>
+                      <Button type="submit" disabled={savingUser} className="min-w-[120px]">
+                        {savingUser
+                          ? 'Saving...'
+                          : editingUserId
+                          ? 'Save Changes'
+                          : 'Create User'}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Users list */}
+                <div className="overflow-hidden rounded-lg border border-border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Status</TableHead>
+                        {canManageUsers && (
+                          <TableHead className="text-right">Actions</TableHead>
+                        )}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {users.length > 0 ? (
+                        users.map((u) => (
+                          <TableRow key={u.id}>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-3">
+                                <div className="flex size-8 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-sm font-bold text-primary">
+                                  {u.avatar ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={u.avatar}
+                                      alt=""
+                                      className="size-full object-cover"
+                                      onError={(e) => {
+                                        ;(e.currentTarget as HTMLImageElement).style.display =
+                                          'none'
+                                      }}
+                                    />
+                                  ) : (
+                                    u.username.charAt(0).toUpperCase()
+                                  )}
+                                </div>
+                                <span>{u.username}</span>
+                                {u.id === profile?.id && (
+                                  <Badge variant="outline">You</Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {u.email}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">
+                                {ROLE_LABELS[u.role] ?? u.role}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={u.status === 'ACTIVE' ? 'default' : 'outline'}
+                              >
+                                {u.status}
+                              </Badge>
+                            </TableCell>
+                            {canManageUsers && (
+                              <TableCell className="text-right">
+                                {/* Admins can't manage super admins — only super admins can. */}
+                                {u.role === 'SUPER_ADMIN' && !isSuperAdmin ? (
+                                  <span className="text-xs text-muted-foreground">
+                                    —
+                                  </span>
+                                ) : (
+                                  <div className="flex justify-end gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      aria-label="Edit user"
+                                      onClick={() => openEditUser(u)}
+                                    >
+                                      <Pencil className="size-4" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      aria-label="Delete user"
+                                      className="text-destructive hover:text-destructive"
+                                      disabled={
+                                        deletingUserId === u.id || u.id === profile?.id
+                                      }
+                                      onClick={() => handleDeleteUser(u)}
+                                    >
+                                      <Trash2 className="size-4" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell
+                            colSpan={canManageUsers ? 5 : 4}
+                            className="py-8 text-center"
+                          >
+                            <p className="text-muted-foreground">No users found</p>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </Card>
             </TabsContent>
 

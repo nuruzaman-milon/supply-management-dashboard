@@ -14,10 +14,9 @@ datasource db {
 
 //schema design here
 enum UserRole {
+  SUPER_ADMIN
   ADMIN
   MANAGER
-  ACCOUNTS
-  SALES
 }
 
 enum GeneralStatus {

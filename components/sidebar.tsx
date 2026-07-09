@@ -117,14 +117,14 @@ export function Sidebar({ open, onOpenChange, collapsed = false }: SidebarProps)
             onClick={() => router.push("/dashboard")}
           >
             <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary font-semibold text-primary-foreground">
-              SM
+              AB
             </div>
 
             <div className={cn(collapsed && "md:hidden")}>
               <h1 className="text-sm font-semibold whitespace-nowrap">
-                Supply Management
+                Aydin Bazar
               </h1>
-              <p className="text-xs text-muted-foreground">Admin Panel</p>
+              <p className="text-xs text-muted-foreground">Supplier Admin Panel</p>
             </div>
           </div>
 
@@ -166,7 +166,7 @@ export function Sidebar({ open, onOpenChange, collapsed = false }: SidebarProps)
         {/* Footer */}
         <div className="border-t border-border p-4">
           <div className={cn("text-center", collapsed && "md:hidden")}>
-            <p className="text-xs text-muted-foreground">Supply Management</p>
+            <p className="text-xs text-muted-foreground">Aydin Bazar</p>
             <p className="text-xs text-muted-foreground">v1.0.0</p>
           </div>
         </div>

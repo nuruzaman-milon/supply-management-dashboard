@@ -10,8 +10,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Supply Management Dashboard",
-  description: "Modern enterprise supply management system",
+  title: "Aydin Bazar",
+  description: "Aydin Bazar — supply management dashboard",
   generator: "v0.app",
   icons: {
     icon: [
