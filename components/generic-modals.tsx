@@ -60,7 +60,7 @@ export function GenericAddModal({
 }: GenericAddModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl border-2 border-border bg-card">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto border-2 border-border bg-card">
         <DialogHeader className="space-y-3">
           <DialogTitle className="text-2xl font-bold text-foreground">
             {title}
@@ -94,7 +94,7 @@ export function GenericEditModal({
 }: GenericEditModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl border-2 border-border bg-card">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto border-2 border-border bg-card">
         <DialogHeader className="space-y-3">
           <DialogTitle className="text-2xl font-bold text-foreground">
             {title}
@@ -130,7 +130,7 @@ export function GenericViewModal({
 }: GenericViewModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl border-2 border-border bg-card">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto border-2 border-border bg-card">
         <DialogHeader className="space-y-3">
           <DialogTitle className="text-2xl font-bold text-foreground">
             {title}

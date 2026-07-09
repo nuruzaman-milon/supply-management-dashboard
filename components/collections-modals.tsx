@@ -1,231 +1,265 @@
 'use client'
 
+import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import {
   GenericAddModal,
   GenericEditModal,
   GenericViewModal,
   GenericDeleteModal,
 } from '@/components/generic-modals'
+import type {
+  CollectionDetailDTO,
+  CollectionInput,
+  PaymentMethod,
+  PayableInvoiceDTO,
+} from '@/app/actions/collection.actions'
 
-interface Collection {
-  id: string | number
-  collectionId: string
-  company: string
-  amount: number
-  description: string
-  collectionDate: string
-  method: string
-  status: string
-  createdDate: string
+const METHOD_OPTIONS: { value: PaymentMethod; label: string }[] = [
+  { value: 'CASH', label: 'Cash' },
+  { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
+  { value: 'MOBILE_BANKING', label: 'Mobile Banking' },
+  { value: 'CHEQUE', label: 'Cheque' },
+]
+
+const inputClass =
+  'border-2 border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20'
+const selectClass = cn(
+  inputClass,
+  'flex h-9 w-full rounded-lg px-3 py-2 text-sm outline-none'
+)
+
+function formatCurrency(value: number) {
+  return '৳' + new Intl.NumberFormat('en-BD', { minimumFractionDigits: 0 }).format(value)
 }
 
-interface CollectionFormProps {
-  collection?: Collection
-  onSubmit: (data: Collection) => void
+export function methodLabel(method: PaymentMethod) {
+  return METHOD_OPTIONS.find((m) => m.value === method)?.label ?? method
+}
+
+function todayISO() {
+  return new Date().toISOString().split('T')[0]
+}
+
+// ---- New collection modal ------------------------------------------------
+
+interface NewCollectionModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  invoices: PayableInvoiceDTO[]
+  onSubmit: (data: CollectionInput) => void
   isLoading?: boolean
 }
 
-function CollectionForm({
-  collection,
-  onSubmit,
-  isLoading = false,
-}: CollectionFormProps) {
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-    const data: Collection = {
-      id: collection?.id || Date.now(),
-      collectionId: formData.get('collectionId') as string,
-      company: formData.get('company') as string,
-      amount: parseFloat(formData.get('amount') as string),
-      description: formData.get('description') as string,
-      collectionDate: formData.get('collectionDate') as string,
-      method: formData.get('method') as string,
-      status: formData.get('status') as string,
-      createdDate: collection?.createdDate || new Date().toISOString().split('T')[0],
-    }
-    onSubmit(data)
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid gap-6 sm:grid-cols-2">
-        <div className="space-y-2.5">
-          <Label htmlFor="collectionId" className="text-sm font-semibold text-foreground">
-            Collection ID <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="collectionId"
-            name="collectionId"
-            placeholder="COL-001"
-            defaultValue={collection?.collectionId || ''}
-            className="border-2 border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
-            required
-          />
-        </div>
-
-        <div className="space-y-2.5">
-          <Label htmlFor="company" className="text-sm font-semibold text-foreground">
-            Company <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="company"
-            name="company"
-            placeholder="Company name"
-            defaultValue={collection?.company || ''}
-            className="border-2 border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
-            required
-          />
-        </div>
-
-        <div className="space-y-2.5">
-          <Label htmlFor="amount" className="text-sm font-semibold text-foreground">
-            Amount <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="amount"
-            name="amount"
-            type="number"
-            step="0.01"
-            placeholder="0.00"
-            defaultValue={collection?.amount || ''}
-            className="border-2 border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
-            required
-          />
-        </div>
-
-        <div className="space-y-2.5">
-          <Label htmlFor="collectionDate" className="text-sm font-semibold text-foreground">
-            Collection Date <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="collectionDate"
-            name="collectionDate"
-            type="date"
-            defaultValue={collection?.collectionDate || ''}
-            className="border-2 border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
-            required
-          />
-        </div>
-
-        <div className="space-y-2.5">
-          <Label htmlFor="method" className="text-sm font-semibold text-foreground">
-            Payment Method <span className="text-destructive">*</span>
-          </Label>
-          <Select name="method" defaultValue={collection?.method || 'cash'}>
-            <SelectTrigger className="border-2 border-border bg-card text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="cash">Cash</SelectItem>
-              <SelectItem value="check">Check</SelectItem>
-              <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-              <SelectItem value="card">Card</SelectItem>
-              <SelectItem value="other">Other</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2.5">
-          <Label htmlFor="status" className="text-sm font-semibold text-foreground">
-            Status <span className="text-destructive">*</span>
-          </Label>
-          <Select name="status" defaultValue={collection?.status || 'collected'}>
-            <SelectTrigger className="border-2 border-border bg-card text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="collected">Collected</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="failed">Failed</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2.5 sm:col-span-2">
-          <Label htmlFor="description" className="text-sm font-semibold text-foreground">
-            Description <span className="text-destructive">*</span>
-          </Label>
-          <Textarea
-            id="description"
-            name="description"
-            placeholder="Collection details/notes"
-            defaultValue={collection?.description || ''}
-            className="border-2 border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 min-h-24"
-            required
-          />
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between gap-3 border-t border-border pt-6">
-        <p className="text-xs text-muted-foreground">
-          <span className="text-destructive">*</span> Indicates required fields
-        </p>
-        <Button type="submit" disabled={isLoading} className="min-w-[140px]">
-          {isLoading ? 'Saving...' : collection ? 'Update Collection' : 'Add Collection'}
-        </Button>
-      </div>
-    </form>
-  )
-}
-
-interface AddCollectionModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onSubmit: (data: Collection) => void
-  isLoading?: boolean
-}
-
-interface EditCollectionModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  collection: Collection | null
-  onSubmit: (data: Collection) => void
-  isLoading?: boolean
-}
-
-interface ViewCollectionModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  collection: Collection | null
-}
-
-interface DeleteCollectionModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  collection: Collection | null
-  onConfirm: () => void
-  isLoading?: boolean
-}
-
-export function AddCollectionModal({
+export function NewCollectionModal({
   open,
   onOpenChange,
+  invoices,
   onSubmit,
-  isLoading,
-}: AddCollectionModalProps) {
+  isLoading = false,
+}: NewCollectionModalProps) {
+  const [invoiceId, setInvoiceId] = useState('')
+  const [collectionDate, setCollectionDate] = useState(todayISO())
+  const [amount, setAmount] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH')
+  const [referenceNo, setReferenceNo] = useState('')
+  const [remarks, setRemarks] = useState('')
+
+  const invoiceMap = useMemo(
+    () => new Map(invoices.map((i) => [i.id, i])),
+    [invoices]
+  )
+  const selected = invoiceMap.get(invoiceId)
+
+  const handleInvoiceChange = (id: string) => {
+    setInvoiceId(id)
+    const inv = invoiceMap.get(id)
+    // Default to paying the full outstanding due (editable).
+    setAmount(inv ? String(inv.dueAmount) : '')
+  }
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    onSubmit({
+      invoiceId,
+      collectionDate,
+      amount: Number(amount) || 0,
+      paymentMethod,
+      referenceNo,
+      remarks,
+    })
+  }
+
+  const over = selected ? (Number(amount) || 0) - selected.dueAmount > 0.005 : false
+
   return (
     <GenericAddModal
       open={open}
       onOpenChange={onOpenChange}
-      title="Add New Collection"
-      description="Enter the collection details below. All fields marked with"
-      helpText="Recording a collection will update your payment tracking and cash flow records."
+      title="Record Collection"
+      description="Record a payment against an invoice. All fields marked with"
+      helpText="Recording a payment updates the invoice's paid amount and status automatically."
     >
-      <CollectionForm onSubmit={onSubmit} isLoading={isLoading} />
+      {invoices.length === 0 ? (
+        <div className="rounded-lg border border-border/50 bg-secondary/20 p-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            No invoices are awaiting payment. Every invoice is either fully paid
+            or cancelled.
+          </p>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2.5">
+            <Label htmlFor="invoiceId" className="text-sm font-semibold text-foreground">
+              Invoice <span className="text-destructive">*</span>
+            </Label>
+            <select
+              id="invoiceId"
+              value={invoiceId}
+              onChange={(e) => handleInvoiceChange(e.target.value)}
+              required
+              className={selectClass}
+            >
+              <option value="" disabled>
+                Select an invoice with a due balance
+              </option>
+              {invoices.map((inv) => (
+                <option key={inv.id} value={inv.id}>
+                  {inv.invoiceNo} — {inv.companyName} (due {formatCurrency(inv.dueAmount)})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {selected && (
+            <div className="flex items-center justify-between rounded-lg border border-border/50 bg-secondary/30 p-4">
+              <div>
+                <p className="text-sm text-muted-foreground">{selected.companyName}</p>
+                <p className="font-semibold text-foreground">{selected.invoiceNo}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-muted-foreground">Outstanding Due</p>
+                <p className="text-lg font-bold text-amber-600">
+                  {formatCurrency(selected.dueAmount)}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div className="space-y-2.5">
+              <Label htmlFor="amount" className="text-sm font-semibold text-foreground">
+                Amount <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="amount"
+                type="number"
+                min="0"
+                step="0.01"
+                max={selected?.dueAmount}
+                placeholder="0.00"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className={cn(inputClass, 'text-right', over && 'border-destructive')}
+                required
+              />
+              {over && (
+                <p className="text-xs text-destructive">
+                  Amount exceeds the outstanding due.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2.5">
+              <Label htmlFor="collectionDate" className="text-sm font-semibold text-foreground">
+                Collection Date <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="collectionDate"
+                type="date"
+                value={collectionDate}
+                onChange={(e) => setCollectionDate(e.target.value)}
+                className={inputClass}
+                required
+              />
+            </div>
+
+            <div className="space-y-2.5">
+              <Label htmlFor="paymentMethod" className="text-sm font-semibold text-foreground">
+                Payment Method <span className="text-destructive">*</span>
+              </Label>
+              <select
+                id="paymentMethod"
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                className={selectClass}
+              >
+                {METHOD_OPTIONS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2.5">
+              <Label htmlFor="referenceNo" className="text-sm font-semibold text-foreground">
+                Reference No
+              </Label>
+              <Input
+                id="referenceNo"
+                placeholder="Txn / cheque no (optional)"
+                value={referenceNo}
+                onChange={(e) => setReferenceNo(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2.5">
+            <Label htmlFor="remarks" className="text-sm font-semibold text-foreground">
+              Remarks
+            </Label>
+            <Textarea
+              id="remarks"
+              placeholder="Any additional notes..."
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-3 border-t border-border pt-6">
+            <p className="text-xs text-muted-foreground">
+              <span className="text-destructive">*</span> Indicates required fields
+            </p>
+            <Button
+              type="submit"
+              disabled={isLoading || !invoiceId || over}
+              className="min-w-[140px]"
+            >
+              {isLoading ? 'Saving...' : 'Record Collection'}
+            </Button>
+          </div>
+        </form>
+      )}
     </GenericAddModal>
   )
+}
+
+// ---- Edit collection modal -----------------------------------------------
+
+interface EditCollectionModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  collection: CollectionDetailDTO | null
+  onSubmit: (data: CollectionInput) => void
+  isLoading?: boolean
 }
 
 export function EditCollectionModal({
@@ -233,9 +267,57 @@ export function EditCollectionModal({
   onOpenChange,
   collection,
   onSubmit,
-  isLoading,
+  isLoading = false,
 }: EditCollectionModalProps) {
   if (!collection) return null
+  return (
+    <EditCollectionForm
+      key={collection.id}
+      open={open}
+      onOpenChange={onOpenChange}
+      collection={collection}
+      onSubmit={onSubmit}
+      isLoading={isLoading}
+    />
+  )
+}
+
+function EditCollectionForm({
+  open,
+  onOpenChange,
+  collection,
+  onSubmit,
+  isLoading,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  collection: CollectionDetailDTO
+  onSubmit: (data: CollectionInput) => void
+  isLoading: boolean
+}) {
+  const [collectionDate, setCollectionDate] = useState(
+    collection.collectionDate.split('T')[0]
+  )
+  const [amount, setAmount] = useState(String(collection.amount))
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    collection.paymentMethod
+  )
+  const [referenceNo, setReferenceNo] = useState(collection.referenceNo)
+  const [remarks, setRemarks] = useState(collection.remarks)
+
+  const over = (Number(amount) || 0) - collection.maxAmount > 0.005
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    onSubmit({
+      invoiceId: collection.invoiceId,
+      collectionDate,
+      amount: Number(amount) || 0,
+      paymentMethod,
+      referenceNo,
+      remarks,
+    })
+  }
 
   return (
     <GenericEditModal
@@ -243,16 +325,124 @@ export function EditCollectionModal({
       onOpenChange={onOpenChange}
       title="Edit Collection"
       description="Update the information for"
-      entityName={`Collection ${collection.collectionId}`}
-      helpText="Changes will be saved immediately. You can edit this collection anytime."
+      entityName={collection.collectionNo}
+      helpText="The invoice cannot be changed. Its status updates automatically after saving."
     >
-      <CollectionForm
-        collection={collection}
-        onSubmit={onSubmit}
-        isLoading={isLoading}
-      />
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="flex items-center justify-between rounded-lg border border-border/50 bg-secondary/30 p-4">
+          <div>
+            <p className="text-sm text-muted-foreground">{collection.companyName}</p>
+            <p className="font-semibold text-foreground">{collection.invoiceNo}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-muted-foreground">Max Payable</p>
+            <p className="text-lg font-bold text-amber-600">
+              {formatCurrency(collection.maxAmount)}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="space-y-2.5">
+            <Label htmlFor="amount" className="text-sm font-semibold text-foreground">
+              Amount <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="amount"
+              type="number"
+              min="0"
+              step="0.01"
+              max={collection.maxAmount}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className={cn(inputClass, 'text-right', over && 'border-destructive')}
+              required
+            />
+            {over && (
+              <p className="text-xs text-destructive">
+                Amount exceeds the invoice&apos;s payable balance.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2.5">
+            <Label htmlFor="collectionDate" className="text-sm font-semibold text-foreground">
+              Collection Date <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="collectionDate"
+              type="date"
+              value={collectionDate}
+              onChange={(e) => setCollectionDate(e.target.value)}
+              className={inputClass}
+              required
+            />
+          </div>
+
+          <div className="space-y-2.5">
+            <Label htmlFor="paymentMethod" className="text-sm font-semibold text-foreground">
+              Payment Method <span className="text-destructive">*</span>
+            </Label>
+            <select
+              id="paymentMethod"
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+              className={selectClass}
+            >
+              {METHOD_OPTIONS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2.5">
+            <Label htmlFor="referenceNo" className="text-sm font-semibold text-foreground">
+              Reference No
+            </Label>
+            <Input
+              id="referenceNo"
+              placeholder="Txn / cheque no (optional)"
+              value={referenceNo}
+              onChange={(e) => setReferenceNo(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2.5">
+          <Label htmlFor="remarks" className="text-sm font-semibold text-foreground">
+            Remarks
+          </Label>
+          <Textarea
+            id="remarks"
+            placeholder="Any additional notes..."
+            value={remarks}
+            onChange={(e) => setRemarks(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-border pt-6">
+          <p className="text-xs text-muted-foreground">
+            <span className="text-destructive">*</span> Indicates required fields
+          </p>
+          <Button type="submit" disabled={isLoading || over} className="min-w-[140px]">
+            {isLoading ? 'Saving...' : 'Update Collection'}
+          </Button>
+        </div>
+      </form>
     </GenericEditModal>
   )
+}
+
+// ---- View collection modal -----------------------------------------------
+
+interface ViewCollectionModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  collection: CollectionDetailDTO | null
 }
 
 export function ViewCollectionModal({
@@ -262,62 +452,36 @@ export function ViewCollectionModal({
 }: ViewCollectionModalProps) {
   if (!collection) return null
 
-  const formatCurrency = (value: number) => {
-    return '৳' + new Intl.NumberFormat('en-BD', {
-      minimumFractionDigits: 0,
-    }).format(value)
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'collected':
-        return 'text-green-600'
-      case 'pending':
-        return 'text-amber-600'
-      case 'failed':
-        return 'text-red-600'
-      default:
-        return 'text-gray-600'
-    }
-  }
-
   return (
     <GenericViewModal
       open={open}
       onOpenChange={onOpenChange}
-      title={`Collection ${collection.collectionId}`}
+      title={collection.collectionNo}
       subtitle="Complete collection information"
     >
       <div className="space-y-6">
         <div className="rounded-lg border border-border/50 bg-secondary/20 p-4">
-          <h4 className="font-semibold text-foreground mb-4">Collection Details</h4>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                Collection ID
-              </p>
+              <p className="mb-1 text-sm font-medium text-muted-foreground">Company</p>
               <p className="text-base font-semibold text-foreground">
-                {collection.collectionId}
+                {collection.companyName}
               </p>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                Company
-              </p>
-              <p className="text-base font-semibold text-foreground">
-                {collection.company}
+              <p className="mb-1 text-sm font-medium text-muted-foreground">Invoice</p>
+              <p className="font-mono text-base font-semibold text-foreground">
+                {collection.invoiceNo}
               </p>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                Amount
-              </p>
+              <p className="mb-1 text-sm font-medium text-muted-foreground">Amount</p>
               <p className="text-base font-bold text-green-600">
                 {formatCurrency(collection.amount)}
               </p>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
+              <p className="mb-1 text-sm font-medium text-muted-foreground">
                 Collection Date
               </p>
               <p className="text-base font-semibold text-foreground">
@@ -325,35 +489,57 @@ export function ViewCollectionModal({
               </p>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
+              <p className="mb-1 text-sm font-medium text-muted-foreground">
                 Payment Method
               </p>
-              <p className="text-base font-semibold text-foreground capitalize">
-                {collection.method.replace('_', ' ')}
+              <Badge variant="outline">{methodLabel(collection.paymentMethod)}</Badge>
+            </div>
+            <div>
+              <p className="mb-1 text-sm font-medium text-muted-foreground">
+                Reference No
+              </p>
+              <p className="text-base font-semibold text-foreground">
+                {collection.referenceNo || '—'}
               </p>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                Status
+              <p className="mb-1 text-sm font-medium text-muted-foreground">
+                Invoice Total
               </p>
-              <p className={`text-base font-semibold capitalize ${getStatusColor(collection.status)}`}>
-                {collection.status}
+              <p className="text-base font-semibold text-foreground">
+                {formatCurrency(collection.invoiceTotal)}
+              </p>
+            </div>
+            <div>
+              <p className="mb-1 text-sm font-medium text-muted-foreground">Created By</p>
+              <p className="text-base font-semibold text-foreground">
+                {collection.createdByName}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-lg border border-border/50 bg-secondary/20 p-4">
-          <h4 className="font-semibold text-foreground mb-3">Description</h4>
-          <p className="text-base text-foreground whitespace-pre-wrap">{collection.description}</p>
-        </div>
-
-        <div className="text-xs text-muted-foreground">
-          <p>Created: {new Date(collection.createdDate).toLocaleDateString()}</p>
-        </div>
+        {collection.remarks && (
+          <div className="rounded-lg border border-border/50 bg-secondary/20 p-4">
+            <h4 className="mb-2 font-semibold text-foreground">Remarks</h4>
+            <p className="whitespace-pre-wrap text-base text-foreground">
+              {collection.remarks}
+            </p>
+          </div>
+        )}
       </div>
     </GenericViewModal>
   )
+}
+
+// ---- Delete collection modal ---------------------------------------------
+
+interface DeleteCollectionModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  collection: CollectionDetailDTO | null
+  onConfirm: () => void
+  isLoading?: boolean
 }
 
 export function DeleteCollectionModal({
@@ -371,7 +557,7 @@ export function DeleteCollectionModal({
       onOpenChange={onOpenChange}
       title="Delete Collection"
       message="Are you sure you want to permanently delete"
-      itemName={`Collection ${collection.collectionId}`}
+      itemName={collection.collectionNo}
       onConfirm={onConfirm}
       isLoading={isLoading}
     />

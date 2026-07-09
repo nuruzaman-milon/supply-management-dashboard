@@ -1,360 +1,546 @@
 'use client'
 
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
+import { Trash2 } from 'lucide-react'
 import {
   GenericAddModal,
-  GenericEditModal,
   GenericViewModal,
-  GenericDeleteModal,
 } from '@/components/generic-modals'
+import type { CollectionInput, PaymentMethod } from '@/app/actions/collection.actions'
+import type {
+  DueListDTO,
+  DueDetailDTO,
+  AdjustmentInput,
+  AdjustmentType,
+} from '@/app/actions/due.actions'
 
-interface DueItem {
-  id: string | number
-  company: string
-  amount: number
-  description: string
-  dueDate: string
-  status: string
-  priority: string
-  createdDate: string
+const METHOD_OPTIONS: { value: PaymentMethod; label: string }[] = [
+  { value: 'CASH', label: 'Cash' },
+  { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
+  { value: 'MOBILE_BANKING', label: 'Mobile Banking' },
+  { value: 'CHEQUE', label: 'Cheque' },
+]
+
+const ADJUSTMENT_OPTIONS: { value: AdjustmentType; label: string }[] = [
+  { value: 'DISCOUNT', label: 'Discount' },
+  { value: 'WAIVER', label: 'Waiver' },
+  { value: 'CORRECTION', label: 'Correction' },
+  { value: 'WRITE_OFF', label: 'Write-off' },
+]
+
+const inputClass =
+  'border-2 border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20'
+const selectClass = cn(
+  inputClass,
+  'flex h-9 w-full rounded-lg px-3 py-2 text-sm outline-none'
+)
+
+function formatCurrency(value: number) {
+  return '৳' + new Intl.NumberFormat('en-BD', { minimumFractionDigits: 0 }).format(value)
 }
 
-interface DueFormProps {
-  item?: DueItem
-  onSubmit: (data: DueItem) => void
+export function methodLabel(method: string) {
+  return METHOD_OPTIONS.find((m) => m.value === method)?.label ?? method
+}
+export function adjustmentLabel(type: AdjustmentType) {
+  return ADJUSTMENT_OPTIONS.find((a) => a.value === type)?.label ?? type
+}
+
+function todayISO() {
+  return new Date().toISOString().split('T')[0]
+}
+
+// ---- Collect Payment modal (scoped to one invoice) -----------------------
+
+interface CollectPaymentModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  due: DueListDTO | null
+  onSubmit: (data: CollectionInput) => void
   isLoading?: boolean
 }
 
-function DueForm({ item, onSubmit, isLoading = false }: DueFormProps) {
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-    const data: DueItem = {
-      id: item?.id || Date.now(),
-      company: formData.get('company') as string,
-      amount: parseFloat(formData.get('amount') as string),
-      description: formData.get('description') as string,
-      dueDate: formData.get('dueDate') as string,
-      status: formData.get('status') as string,
-      priority: formData.get('priority') as string,
-      createdDate: item?.createdDate || new Date().toISOString().split('T')[0],
-    }
-    onSubmit(data)
-  }
-
+export function CollectPaymentModal({
+  open,
+  onOpenChange,
+  due,
+  onSubmit,
+  isLoading = false,
+}: CollectPaymentModalProps) {
+  if (!due) return null
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid gap-6 sm:grid-cols-2">
-        <div className="space-y-2.5 sm:col-span-2">
-          <Label htmlFor="company" className="text-sm font-semibold text-foreground">
-            Company <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="company"
-            name="company"
-            placeholder="Company name"
-            defaultValue={item?.company || ''}
-            className="border-2 border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
-            required
-          />
-        </div>
-
-        <div className="space-y-2.5">
-          <Label htmlFor="amount" className="text-sm font-semibold text-foreground">
-            Amount <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="amount"
-            name="amount"
-            type="number"
-            step="0.01"
-            placeholder="0.00"
-            defaultValue={item?.amount || ''}
-            className="border-2 border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
-            required
-          />
-        </div>
-
-        <div className="space-y-2.5">
-          <Label htmlFor="dueDate" className="text-sm font-semibold text-foreground">
-            Due Date <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="dueDate"
-            name="dueDate"
-            type="date"
-            defaultValue={item?.dueDate || ''}
-            className="border-2 border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
-            required
-          />
-        </div>
-
-        <div className="space-y-2.5">
-          <Label htmlFor="priority" className="text-sm font-semibold text-foreground">
-            Priority <span className="text-destructive">*</span>
-          </Label>
-          <Select name="priority" defaultValue={item?.priority || 'normal'}>
-            <SelectTrigger className="border-2 border-border bg-card text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="low">Low</SelectItem>
-              <SelectItem value="normal">Normal</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="urgent">Urgent</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2.5">
-          <Label htmlFor="status" className="text-sm font-semibold text-foreground">
-            Status <span className="text-destructive">*</span>
-          </Label>
-          <Select name="status" defaultValue={item?.status || 'pending'}>
-            <SelectTrigger className="border-2 border-border bg-card text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="processing">Processing</SelectItem>
-              <SelectItem value="overdue">Overdue</SelectItem>
-              <SelectItem value="resolved">Resolved</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2.5 sm:col-span-2">
-          <Label htmlFor="description" className="text-sm font-semibold text-foreground">
-            Description <span className="text-destructive">*</span>
-          </Label>
-          <Textarea
-            id="description"
-            name="description"
-            placeholder="Due amount details/notes"
-            defaultValue={item?.description || ''}
-            className="border-2 border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 min-h-24"
-            required
-          />
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between gap-3 border-t border-border pt-6">
-        <p className="text-xs text-muted-foreground">
-          <span className="text-destructive">*</span> Indicates required fields
-        </p>
-        <Button type="submit" disabled={isLoading} className="min-w-[140px]">
-          {isLoading ? 'Saving...' : item ? 'Update Due' : 'Add Due'}
-        </Button>
-      </div>
-    </form>
+    <CollectPaymentForm
+      key={due.invoiceId}
+      open={open}
+      onOpenChange={onOpenChange}
+      due={due}
+      onSubmit={onSubmit}
+      isLoading={isLoading}
+    />
   )
 }
 
-interface AddDueModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onSubmit: (data: DueItem) => void
-  isLoading?: boolean
-}
-
-interface EditDueModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  item: DueItem | null
-  onSubmit: (data: DueItem) => void
-  isLoading?: boolean
-}
-
-interface ViewDueModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  item: DueItem | null
-}
-
-interface DeleteDueModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  item: DueItem | null
-  onConfirm: () => void
-  isLoading?: boolean
-}
-
-export function AddDueModal({
+function CollectPaymentForm({
   open,
   onOpenChange,
+  due,
   onSubmit,
   isLoading,
-}: AddDueModalProps) {
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  due: DueListDTO
+  onSubmit: (data: CollectionInput) => void
+  isLoading: boolean
+}) {
+  const [collectionDate, setCollectionDate] = useState(todayISO())
+  const [amount, setAmount] = useState(String(due.dueAmount))
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH')
+  const [referenceNo, setReferenceNo] = useState('')
+  const [remarks, setRemarks] = useState('')
+
+  const over = (Number(amount) || 0) - due.dueAmount > 0.005
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    onSubmit({
+      invoiceId: due.invoiceId,
+      collectionDate,
+      amount: Number(amount) || 0,
+      paymentMethod,
+      referenceNo,
+      remarks,
+    })
+  }
+
   return (
     <GenericAddModal
       open={open}
       onOpenChange={onOpenChange}
-      title="Add New Due"
-      description="Enter the due amount details below. All fields marked with"
-      helpText="Recording a due will help track outstanding payments and manage cash flow."
+      title="Collect Payment"
+      description="Record a payment against this invoice. All fields marked with"
+      helpText="This updates the invoice's paid amount and status automatically."
     >
-      <DueForm onSubmit={onSubmit} isLoading={isLoading} />
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="flex items-center justify-between rounded-lg border border-border/50 bg-secondary/30 p-4">
+          <div>
+            <p className="text-sm text-muted-foreground">{due.companyName}</p>
+            <p className="font-mono font-semibold text-foreground">{due.invoiceNo}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-muted-foreground">Outstanding Due</p>
+            <p className="text-lg font-bold text-amber-600">
+              {formatCurrency(due.dueAmount)}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="space-y-2.5">
+            <Label htmlFor="amount" className="text-sm font-semibold text-foreground">
+              Amount <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="amount"
+              type="number"
+              min="0"
+              step="0.01"
+              max={due.dueAmount}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className={cn(inputClass, 'text-right', over && 'border-destructive')}
+              required
+            />
+            {over && (
+              <p className="text-xs text-destructive">Amount exceeds the outstanding due.</p>
+            )}
+          </div>
+          <div className="space-y-2.5">
+            <Label htmlFor="collectionDate" className="text-sm font-semibold text-foreground">
+              Collection Date <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="collectionDate"
+              type="date"
+              value={collectionDate}
+              onChange={(e) => setCollectionDate(e.target.value)}
+              className={inputClass}
+              required
+            />
+          </div>
+          <div className="space-y-2.5">
+            <Label htmlFor="paymentMethod" className="text-sm font-semibold text-foreground">
+              Payment Method <span className="text-destructive">*</span>
+            </Label>
+            <select
+              id="paymentMethod"
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+              className={selectClass}
+            >
+              {METHOD_OPTIONS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2.5">
+            <Label htmlFor="referenceNo" className="text-sm font-semibold text-foreground">
+              Reference No
+            </Label>
+            <Input
+              id="referenceNo"
+              placeholder="Txn / cheque no (optional)"
+              value={referenceNo}
+              onChange={(e) => setReferenceNo(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2.5">
+          <Label htmlFor="remarks" className="text-sm font-semibold text-foreground">
+            Remarks
+          </Label>
+          <Textarea
+            id="remarks"
+            placeholder="Any additional notes..."
+            value={remarks}
+            onChange={(e) => setRemarks(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-border pt-6">
+          <p className="text-xs text-muted-foreground">
+            <span className="text-destructive">*</span> Indicates required fields
+          </p>
+          <Button type="submit" disabled={isLoading || over} className="min-w-[140px]">
+            {isLoading ? 'Saving...' : 'Record Payment'}
+          </Button>
+        </div>
+      </form>
     </GenericAddModal>
   )
 }
 
-export function EditDueModal({
+// ---- Adjustment modal ----------------------------------------------------
+
+interface AdjustmentModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  due: DueListDTO | null
+  onSubmit: (data: AdjustmentInput) => void
+  isLoading?: boolean
+}
+
+export function AdjustmentModal({
   open,
   onOpenChange,
-  item,
+  due,
   onSubmit,
-  isLoading,
-}: EditDueModalProps) {
-  if (!item) return null
-
+  isLoading = false,
+}: AdjustmentModalProps) {
+  if (!due) return null
   return (
-    <GenericEditModal
+    <AdjustmentForm
+      key={due.invoiceId}
       open={open}
       onOpenChange={onOpenChange}
-      title="Edit Due"
-      description="Update the information for"
-      entityName={`Due from ${item.company}`}
-      helpText="Changes will be saved immediately. You can edit this due anytime."
-    >
-      <DueForm item={item} onSubmit={onSubmit} isLoading={isLoading} />
-    </GenericEditModal>
+      due={due}
+      onSubmit={onSubmit}
+      isLoading={isLoading}
+    />
   )
+}
+
+function AdjustmentForm({
+  open,
+  onOpenChange,
+  due,
+  onSubmit,
+  isLoading,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  due: DueListDTO
+  onSubmit: (data: AdjustmentInput) => void
+  isLoading: boolean
+}) {
+  const [adjustmentType, setAdjustmentType] = useState<AdjustmentType>('DISCOUNT')
+  const [amount, setAmount] = useState('')
+  const [reason, setReason] = useState('')
+
+  const over = (Number(amount) || 0) - due.dueAmount > 0.005
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    onSubmit({
+      invoiceId: due.invoiceId,
+      adjustmentType,
+      amount: Number(amount) || 0,
+      reason,
+    })
+  }
+
+  return (
+    <GenericAddModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Record Adjustment"
+      description="Reduce the outstanding due without a cash payment. All fields marked with"
+      helpText="Use adjustments for discounts, waivers, corrections, or writing off bad debt."
+    >
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="flex items-center justify-between rounded-lg border border-border/50 bg-secondary/30 p-4">
+          <div>
+            <p className="text-sm text-muted-foreground">{due.companyName}</p>
+            <p className="font-mono font-semibold text-foreground">{due.invoiceNo}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-muted-foreground">Outstanding Due</p>
+            <p className="text-lg font-bold text-amber-600">
+              {formatCurrency(due.dueAmount)}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="space-y-2.5">
+            <Label htmlFor="adjustmentType" className="text-sm font-semibold text-foreground">
+              Type <span className="text-destructive">*</span>
+            </Label>
+            <select
+              id="adjustmentType"
+              value={adjustmentType}
+              onChange={(e) => setAdjustmentType(e.target.value as AdjustmentType)}
+              className={selectClass}
+            >
+              {ADJUSTMENT_OPTIONS.map((a) => (
+                <option key={a.value} value={a.value}>
+                  {a.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2.5">
+            <Label htmlFor="amount" className="text-sm font-semibold text-foreground">
+              Amount <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="amount"
+              type="number"
+              min="0"
+              step="0.01"
+              max={due.dueAmount}
+              placeholder="0.00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className={cn(inputClass, 'text-right', over && 'border-destructive')}
+              required
+            />
+            {over && (
+              <p className="text-xs text-destructive">Adjustment exceeds the outstanding due.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-2.5">
+          <Label htmlFor="reason" className="text-sm font-semibold text-foreground">
+            Reason
+          </Label>
+          <Textarea
+            id="reason"
+            placeholder="Why is this adjustment being made?"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-border pt-6">
+          <p className="text-xs text-muted-foreground">
+            <span className="text-destructive">*</span> Indicates required fields
+          </p>
+          <Button type="submit" disabled={isLoading || over} className="min-w-[140px]">
+            {isLoading ? 'Saving...' : 'Record Adjustment'}
+          </Button>
+        </div>
+      </form>
+    </GenericAddModal>
+  )
+}
+
+// ---- View Due modal ------------------------------------------------------
+
+interface ViewDueModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  detail: DueDetailDTO | null
+  onDeleteAdjustment: (id: string) => void
+  deletingAdjustmentId?: string | null
 }
 
 export function ViewDueModal({
   open,
   onOpenChange,
-  item,
+  detail,
+  onDeleteAdjustment,
+  deletingAdjustmentId,
 }: ViewDueModalProps) {
-  if (!item) return null
-
-  const formatCurrency = (value: number) => {
-    return '৳' + new Intl.NumberFormat('en-BD', {
-      minimumFractionDigits: 0,
-    }).format(value)
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent':
-        return 'text-red-600 bg-red-50 dark:bg-red-950/20'
-      case 'high':
-        return 'text-orange-600 bg-orange-50 dark:bg-orange-950/20'
-      case 'normal':
-        return 'text-blue-600 bg-blue-50 dark:bg-blue-950/20'
-      case 'low':
-        return 'text-green-600 bg-green-50 dark:bg-green-950/20'
-      default:
-        return 'text-gray-600 bg-gray-50 dark:bg-gray-950/20'
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'resolved':
-        return 'text-green-600'
-      case 'overdue':
-        return 'text-red-600'
-      case 'processing':
-        return 'text-blue-600'
-      case 'pending':
-        return 'text-amber-600'
-      default:
-        return 'text-gray-600'
-    }
-  }
+  if (!detail) return null
 
   return (
     <GenericViewModal
       open={open}
       onOpenChange={onOpenChange}
-      title={`Due from ${item.company}`}
-      subtitle="Complete due information"
+      title={detail.invoiceNo}
+      subtitle={`Due details · ${detail.companyName}`}
     >
       <div className="space-y-6">
-        <div className={`rounded-lg p-4 ${getPriorityColor(item.priority)}`}>
-          <p className="font-semibold capitalize">Priority: {item.priority}</p>
+        {/* Header */}
+        <div className="grid gap-4 rounded-lg border border-border/50 bg-secondary/20 p-4 sm:grid-cols-2">
+          <div>
+            <p className="mb-1 text-sm font-medium text-muted-foreground">Invoice Date</p>
+            <p className="text-base font-semibold text-foreground">
+              {new Date(detail.invoiceDate).toLocaleDateString()}
+            </p>
+          </div>
+          <div>
+            <p className="mb-1 text-sm font-medium text-muted-foreground">Due Date</p>
+            <p className="text-base font-semibold text-foreground">
+              {new Date(detail.dueDate).toLocaleDateString()}
+            </p>
+          </div>
+          <div>
+            <p className="mb-1 text-sm font-medium text-muted-foreground">Overdue</p>
+            {detail.overdue ? (
+              <Badge variant="destructive">{detail.daysOverdue} days overdue</Badge>
+            ) : (
+              <Badge variant="secondary">Not overdue</Badge>
+            )}
+          </div>
         </div>
 
+        {/* Breakdown */}
         <div className="rounded-lg border border-border/50 bg-secondary/20 p-4">
-          <h4 className="font-semibold text-foreground mb-4">Due Details</h4>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                Company
-              </p>
-              <p className="text-base font-semibold text-foreground">
-                {item.company}
-              </p>
+          <div className="ml-auto max-w-xs space-y-1.5 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Invoice Amount</span>
+              <span className="font-medium">{formatCurrency(detail.invoiceAmount)}</span>
             </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                Amount Due
-              </p>
-              <p className="text-base font-bold text-amber-600">
-                {formatCurrency(item.amount)}
-              </p>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Paid</span>
+              <span className="font-medium text-green-600">
+                {formatCurrency(detail.paidAmount)}
+              </span>
             </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                Due Date
-              </p>
-              <p className="text-base font-semibold text-foreground">
-                {new Date(item.dueDate).toLocaleDateString()}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                Status
-              </p>
-              <p className={`text-base font-semibold capitalize ${getStatusColor(item.status)}`}>
-                {item.status}
-              </p>
+            {detail.adjustmentTotal > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Adjustments</span>
+                <span className="font-medium">− {formatCurrency(detail.adjustmentTotal)}</span>
+              </div>
+            )}
+            <div className="flex justify-between border-t border-border pt-1.5 text-base font-bold">
+              <span>Due</span>
+              <span className="text-amber-600">{formatCurrency(detail.dueAmount)}</span>
             </div>
           </div>
         </div>
 
+        {/* Collections */}
         <div className="rounded-lg border border-border/50 bg-secondary/20 p-4">
-          <h4 className="font-semibold text-foreground mb-3">Description</h4>
-          <p className="text-base text-foreground whitespace-pre-wrap">{item.description}</p>
+          <h4 className="mb-3 font-semibold text-foreground">
+            Collections ({detail.collections.length})
+          </h4>
+          {detail.collections.length === 0 ? (
+            <p className="rounded-md bg-secondary/40 px-3 py-4 text-center text-sm text-muted-foreground">
+              No payments recorded yet.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-muted-foreground">
+                    <th className="py-2 font-medium">Collection</th>
+                    <th className="py-2 font-medium">Date</th>
+                    <th className="py-2 font-medium">Method</th>
+                    <th className="py-2 text-right font-medium">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detail.collections.map((c) => (
+                    <tr key={c.id} className="border-b border-border/40">
+                      <td className="py-2 font-mono text-xs">{c.collectionNo}</td>
+                      <td className="py-2">
+                        {new Date(c.collectionDate).toLocaleDateString()}
+                      </td>
+                      <td className="py-2">
+                        <Badge variant="outline">{methodLabel(c.paymentMethod)}</Badge>
+                      </td>
+                      <td className="py-2 text-right font-semibold text-green-600">
+                        {formatCurrency(c.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
-        <div className="text-xs text-muted-foreground">
-          <p>Created: {new Date(item.createdDate).toLocaleDateString()}</p>
+        {/* Adjustments */}
+        <div className="rounded-lg border border-border/50 bg-secondary/20 p-4">
+          <h4 className="mb-3 font-semibold text-foreground">
+            Adjustments ({detail.adjustments.length})
+          </h4>
+          {detail.adjustments.length === 0 ? (
+            <p className="rounded-md bg-secondary/40 px-3 py-4 text-center text-sm text-muted-foreground">
+              No adjustments on this invoice.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {detail.adjustments.map((a) => (
+                <div
+                  key={a.id}
+                  className="flex items-center justify-between gap-3 rounded-md border border-border/40 bg-card p-3"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">{adjustmentLabel(a.adjustmentType)}</Badge>
+                      <span className="font-semibold text-foreground">
+                        {formatCurrency(a.amount)}
+                      </span>
+                    </div>
+                    {a.reason && (
+                      <p className="mt-1 truncate text-xs text-muted-foreground">{a.reason}</p>
+                    )}
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {new Date(a.createdAt).toLocaleDateString()} · {a.createdByName}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 shrink-0 text-destructive hover:text-destructive"
+                    onClick={() => onDeleteAdjustment(a.id)}
+                    disabled={deletingAdjustmentId === a.id}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </GenericViewModal>
-  )
-}
-
-export function DeleteDueModal({
-  open,
-  onOpenChange,
-  item,
-  onConfirm,
-  isLoading,
-}: DeleteDueModalProps) {
-  if (!item) return null
-
-  return (
-    <GenericDeleteModal
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Delete Due"
-      message="Are you sure you want to permanently delete the due from"
-      itemName={item.company}
-      onConfirm={onConfirm}
-      isLoading={isLoading}
-    />
   )
 }

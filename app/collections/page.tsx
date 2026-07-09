@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -28,91 +28,175 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
+  NewCollectionModal,
+  EditCollectionModal,
+  ViewCollectionModal,
+  DeleteCollectionModal,
+  methodLabel,
+} from '@/components/collections-modals'
+import {
   Plus,
   Search,
   MoreHorizontal,
   Eye,
   Edit2,
   Trash2,
+  Wallet,
 } from 'lucide-react'
+import {
+  getCollections,
+  getCollection,
+  getPayableInvoices,
+  createCollection,
+  updateCollection,
+  deleteCollection,
+  type CollectionListDTO,
+  type CollectionDetailDTO,
+  type CollectionInput,
+  type PayableInvoiceDTO,
+  type PaymentMethod,
+} from '@/app/actions/collection.actions'
 
-const mockCollections = [
-  {
-    id: 1,
-    number: 'COL-001',
-    company: 'Global Tech Solutions',
-    invoiceNumber: 'INV-001',
-    collectionDate: '2024-06-15',
-    amount: 125000,
-    paymentMethod: 'Bank Transfer',
-  },
-  {
-    id: 2,
-    number: 'COL-002',
-    company: 'Innovation Hub',
-    invoiceNumber: 'INV-003',
-    collectionDate: '2024-06-14',
-    amount: 162500,
-    paymentMethod: 'Check',
-  },
-  {
-    id: 3,
-    number: 'COL-003',
-    company: 'Digital Innovations Ltd',
-    invoiceNumber: 'INV-002',
-    collectionDate: '2024-06-13',
-    amount: 42500,
-    paymentMethod: 'Cash',
-  },
-  {
-    id: 4,
-    number: 'COL-004',
-    company: 'Tech Ventures',
-    invoiceNumber: 'INV-004',
-    collectionDate: '2024-06-12',
-    amount: 45000,
-    paymentMethod: 'Bank Transfer',
-  },
-  {
-    id: 5,
-    number: 'COL-005',
-    company: 'Smart Solutions',
-    invoiceNumber: 'INV-005',
-    collectionDate: '2024-06-11',
-    amount: 107500,
-    paymentMethod: 'Check',
-  },
+const ITEMS_PER_PAGE = 10
+
+const METHOD_FILTERS = [
+  { value: 'all', label: 'All Methods' },
+  { value: 'CASH', label: 'Cash' },
+  { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
+  { value: 'MOBILE_BANKING', label: 'Mobile Banking' },
+  { value: 'CHEQUE', label: 'Cheque' },
 ]
 
-const paymentMethods = ['All', 'Bank Transfer', 'Check', 'Cash', 'Card']
-
 export default function CollectionsPage() {
+  const [collections, setCollections] = useState<CollectionListDTO[]>([])
+  const [payableInvoices, setPayableInvoices] = useState<PayableInvoiceDTO[]>([])
+
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedMethod, setSelectedMethod] = useState('All')
+  const [methodFilter, setMethodFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
 
-  const filteredCollections = mockCollections.filter((collection) => {
-    const matchesSearch =
-      collection.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      collection.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      collection.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesMethod =
-      selectedMethod === 'All' || collection.paymentMethod === selectedMethod
+  const [isFetching, setIsFetching] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
 
-    return matchesSearch && matchesMethod
-  })
+  const [newModalOpen, setNewModalOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [viewModalOpen, setViewModalOpen] = useState(false)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [selected, setSelected] = useState<CollectionDetailDTO | null>(null)
 
-  const itemsPerPage = 10
-  const totalPages = Math.ceil(filteredCollections.length / itemsPerPage)
-  const paginatedCollections = filteredCollections.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+  const refreshPayable = () =>
+    getPayableInvoices().then(setPayableInvoices).catch(() => {})
+
+  useEffect(() => {
+    let active = true
+    Promise.all([getCollections(), getPayableInvoices()])
+      .then(([collectionData, invoiceData]) => {
+        if (!active) return
+        setCollections(collectionData)
+        setPayableInvoices(invoiceData)
+      })
+      .catch((error) => {
+        console.error('Failed to load collections', error)
+        alert((error as Error).message || 'Failed to load collections')
+      })
+      .finally(() => {
+        if (active) setIsFetching(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const filteredCollections = useMemo(() => {
+    return collections.filter((c) => {
+      const matchesSearch =
+        c.collectionNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.invoiceNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.companyName.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesMethod =
+        methodFilter === 'all' || c.paymentMethod === methodFilter
+      return matchesSearch && matchesMethod
+    })
+  }, [collections, searchTerm, methodFilter])
+
+  const totalCollected = useMemo(
+    () => filteredCollections.reduce((sum, c) => sum + c.amount, 0),
+    [filteredCollections]
   )
 
-  const formatAmount = (amount) => {
-    return '৳' + new Intl.NumberFormat('en-BD', {
-      minimumFractionDigits: 0,
-    }).format(amount)
+  const totalPages = Math.ceil(filteredCollections.length / ITEMS_PER_PAGE)
+  const paginatedCollections = filteredCollections.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  )
+
+  const formatAmount = (amount: number) =>
+    '৳' + new Intl.NumberFormat('en-BD', { minimumFractionDigits: 0 }).format(amount)
+
+  // ---- Handlers ----
+  const handleCreate = async (data: CollectionInput) => {
+    setIsSaving(true)
+    try {
+      const created = await createCollection(data)
+      setCollections((prev) => [created, ...prev])
+      await refreshPayable() // due changed → refresh dropdown
+      setNewModalOpen(false)
+    } catch (error) {
+      console.error('Failed to record collection', error)
+      alert((error as Error).message || 'Failed to record collection')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleEdit = async (data: CollectionInput) => {
+    if (!selected) return
+    setIsSaving(true)
+    try {
+      const updated = await updateCollection(selected.id, data)
+      setCollections((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
+      await refreshPayable()
+      setEditModalOpen(false)
+      setSelected(null)
+    } catch (error) {
+      console.error('Failed to update collection', error)
+      alert((error as Error).message || 'Failed to update collection')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!selected) return
+    setIsSaving(true)
+    try {
+      await deleteCollection(selected.id)
+      setCollections((prev) => prev.filter((c) => c.id !== selected.id))
+      await refreshPayable()
+      setDeleteModalOpen(false)
+      setSelected(null)
+    } catch (error) {
+      console.error('Failed to delete collection', error)
+      alert((error as Error).message || 'Failed to delete collection')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const openWithDetail = async (
+    id: string,
+    which: 'view' | 'edit' | 'delete'
+  ) => {
+    try {
+      const detail = await getCollection(id)
+      setSelected(detail)
+      if (which === 'view') setViewModalOpen(true)
+      else if (which === 'edit') setEditModalOpen(true)
+      else setDeleteModalOpen(true)
+    } catch (error) {
+      console.error('Failed to load collection', error)
+      alert((error as Error).message || 'Failed to load collection')
+    }
   }
 
   return (
@@ -123,10 +207,14 @@ export default function CollectionsPage() {
           <div>
             <h1 className="text-3xl font-bold text-foreground">Collections</h1>
             <p className="text-sm text-muted-foreground">
-              Track all payment collections and receipts
+              Track all payment collections ({filteredCollections.length}) ·{' '}
+              <span className="font-semibold text-green-600">
+                {formatAmount(totalCollected)}
+              </span>{' '}
+              collected
             </p>
           </div>
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={() => setNewModalOpen(true)}>
             <Plus className="size-4" />
             New Collection
           </Button>
@@ -135,7 +223,6 @@ export default function CollectionsPage() {
         {/* Filters */}
         <Card className="p-6">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {/* Search */}
             <div className="lg:col-span-2">
               <label className="mb-2 block text-sm font-medium text-foreground">
                 Search
@@ -143,7 +230,7 @@ export default function CollectionsPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by collection or invoice number..."
+                  placeholder="Search by collection, invoice, or company..."
                   value={searchTerm}
                   onChange={(e) => {
                     setSearchTerm(e.target.value)
@@ -154,15 +241,14 @@ export default function CollectionsPage() {
               </div>
             </div>
 
-            {/* Payment Method Filter */}
             <div>
               <label className="mb-2 block text-sm font-medium text-foreground">
                 Payment Method
               </label>
               <Select
-                value={selectedMethod}
+                value={methodFilter}
                 onValueChange={(value) => {
-                  setSelectedMethod(value)
+                  setMethodFilter(value as string)
                   setCurrentPage(1)
                 }}
               >
@@ -170,9 +256,9 @@ export default function CollectionsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {paymentMethods.map((method) => (
-                    <SelectItem key={method} value={method}>
-                      {method}
+                  {METHOD_FILTERS.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>
+                      {m.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -180,14 +266,13 @@ export default function CollectionsPage() {
             </div>
           </div>
 
-          {/* Clear Filters */}
-          {(searchTerm || selectedMethod !== 'All') && (
+          {(searchTerm || methodFilter !== 'all') && (
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
                 setSearchTerm('')
-                setSelectedMethod('All')
+                setMethodFilter('all')
                 setCurrentPage(1)
               }}
               className="mt-4"
@@ -197,41 +282,64 @@ export default function CollectionsPage() {
           )}
         </Card>
 
-        {/* Collections Table */}
+        {/* Table */}
         <Card className="overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Collection Number</TableHead>
-                <TableHead>Company</TableHead>
-                <TableHead>Invoice Number</TableHead>
-                <TableHead>Collection Date</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Payment Method</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedCollections.length > 0 ? (
-                paginatedCollections.map((collection) => (
-                  <TableRow key={collection.id}>
-                    <TableCell className="font-medium font-mono">
-                      {collection.number}
+          {isFetching ? (
+            <div className="flex h-96 items-center justify-center">
+              <div className="text-center">
+                <div className="mb-4 inline-block">
+                  <div className="size-12 animate-spin rounded-full border-4 border-border border-t-primary" />
+                </div>
+                <p className="text-sm text-muted-foreground">Loading collections...</p>
+              </div>
+            </div>
+          ) : filteredCollections.length === 0 ? (
+            <div className="flex h-96 items-center justify-center">
+              <div className="text-center">
+                <Wallet className="mx-auto mb-4 size-12 text-muted-foreground opacity-50" />
+                <h3 className="text-lg font-semibold text-foreground">
+                  No collections found
+                </h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {searchTerm || methodFilter !== 'all'
+                    ? 'Try adjusting your filters or search query'
+                    : 'Record a payment against an invoice to get started'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Collection No</TableHead>
+                  <TableHead>Company</TableHead>
+                  <TableHead>Invoice</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Method</TableHead>
+                  <TableHead>Reference</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedCollections.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-mono font-medium">
+                      {c.collectionNo}
                     </TableCell>
-                    <TableCell>{collection.company}</TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {collection.invoiceNumber}
-                    </TableCell>
+                    <TableCell>{c.companyName}</TableCell>
+                    <TableCell className="font-mono text-sm">{c.invoiceNo}</TableCell>
                     <TableCell>
-                      {new Date(collection.collectionDate).toLocaleDateString()}
+                      {new Date(c.collectionDate).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right font-semibold text-green-600">
-                      {formatAmount(collection.amount)}
+                      {formatAmount(c.amount)}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">
-                        {collection.paymentMethod}
-                      </Badge>
+                      <Badge variant="outline">{methodLabel(c.paymentMethod as PaymentMethod)}</Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {c.referenceNo || '—'}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -241,15 +349,24 @@ export default function CollectionsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem className="gap-2">
+                          <DropdownMenuItem
+                            className="gap-2 cursor-pointer"
+                            onClick={() => openWithDetail(c.id, 'view')}
+                          >
                             <Eye className="size-4" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2">
+                          <DropdownMenuItem
+                            className="gap-2 cursor-pointer"
+                            onClick={() => openWithDetail(c.id, 'edit')}
+                          >
                             <Edit2 className="size-4" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2 text-red-600">
+                          <DropdownMenuItem
+                            className="gap-2 cursor-pointer text-destructive focus:text-destructive"
+                            onClick={() => openWithDetail(c.id, 'delete')}
+                          >
                             <Trash2 className="size-4" />
                             Delete
                           </DropdownMenuItem>
@@ -257,18 +374,10 @@ export default function CollectionsPage() {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center">
-                    <p className="text-muted-foreground">
-                      No collections found
-                    </p>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </Card>
 
         {/* Pagination */}
@@ -276,11 +385,8 @@ export default function CollectionsPage() {
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
               Showing{' '}
-              {Math.min(
-                (currentPage - 1) * itemsPerPage + 1,
-                filteredCollections.length
-              )}{' '}
-              to {Math.min(currentPage * itemsPerPage, filteredCollections.length)} of{' '}
+              {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filteredCollections.length)}{' '}
+              to {Math.min(currentPage * ITEMS_PER_PAGE, filteredCollections.length)} of{' '}
               {filteredCollections.length} collections
             </p>
             <div className="flex gap-2">
@@ -313,6 +419,37 @@ export default function CollectionsPage() {
             </div>
           </div>
         )}
+
+        {/* Modals */}
+        <NewCollectionModal
+          open={newModalOpen}
+          onOpenChange={setNewModalOpen}
+          invoices={payableInvoices}
+          onSubmit={handleCreate}
+          isLoading={isSaving}
+        />
+
+        <EditCollectionModal
+          open={editModalOpen}
+          onOpenChange={setEditModalOpen}
+          collection={selected}
+          onSubmit={handleEdit}
+          isLoading={isSaving}
+        />
+
+        <ViewCollectionModal
+          open={viewModalOpen}
+          onOpenChange={setViewModalOpen}
+          collection={selected}
+        />
+
+        <DeleteCollectionModal
+          open={deleteModalOpen}
+          onOpenChange={setDeleteModalOpen}
+          collection={selected}
+          onConfirm={handleDelete}
+          isLoading={isSaving}
+        />
       </div>
     </DashboardLayout>
   )

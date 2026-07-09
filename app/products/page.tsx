@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -28,138 +28,169 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
+  AddProductModal,
+  EditProductModal,
+  ViewProductModal,
+  DeleteProductModal,
+} from '@/components/product-modals'
+import {
   Plus,
   Search,
   MoreHorizontal,
   Edit2,
   Trash2,
   Eye,
+  Package,
 } from 'lucide-react'
+import {
+  getProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  type ProductDTO,
+  type ProductInput,
+} from '@/app/actions/product.actions'
+import {
+  getCategories,
+  type CategoryDTO,
+} from '@/app/actions/category.actions'
+import { unitLabel } from '@/lib/units'
 
-const mockProducts = [
-  {
-    id: 1,
-    name: 'Laptop - Dell XPS 13',
-    sku: 'DELL-XPS-13',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 125000,
-    status: 'active',
-  },
-  {
-    id: 2,
-    name: 'Office Chair - Ergonomic',
-    sku: 'CHAIR-ERG-001',
-    category: 'Furniture',
-    unit: 'pcs',
-    price: 8500,
-    status: 'active',
-  },
-  {
-    id: 3,
-    name: 'Monitor - 27" LED',
-    sku: 'MON-27-LED',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 18000,
-    status: 'active',
-  },
-  {
-    id: 4,
-    name: 'Desk - Wooden',
-    sku: 'DESK-WOD-001',
-    category: 'Furniture',
-    unit: 'pcs',
-    price: 12000,
-    status: 'inactive',
-  },
-  {
-    id: 5,
-    name: 'Keyboard - Mechanical',
-    sku: 'KEY-MCH-001',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 4500,
-    status: 'active',
-  },
-  {
-    id: 6,
-    name: 'Mouse - Wireless',
-    sku: 'MOUSE-WLS-001',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 1200,
-    status: 'active',
-  },
-  {
-    id: 7,
-    name: 'File Cabinet - Metal',
-    sku: 'CAB-MET-001',
-    category: 'Furniture',
-    unit: 'pcs',
-    price: 6500,
-    status: 'active',
-  },
-  {
-    id: 8,
-    name: 'Printer - Laser',
-    sku: 'PRINT-LAS-001',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 35000,
-    status: 'active',
-  },
-  {
-    id: 9,
-    name: 'Whiteboard - 4x8',
-    sku: 'BOARD-WH-001',
-    category: 'Office Supplies',
-    unit: 'pcs',
-    price: 3500,
-    status: 'inactive',
-  },
-  {
-    id: 10,
-    name: 'Projector - HD',
-    sku: 'PROJ-HD-001',
-    category: 'Electronics',
-    unit: 'pcs',
-    price: 45000,
-    status: 'active',
-  },
-]
-
-const categories = ['All', 'Electronics', 'Furniture', 'Office Supplies']
+const ITEMS_PER_PAGE = 8
 
 export default function ProductsPage() {
+  const [products, setProducts] = useState<ProductDTO[]>([])
+  const [categories, setCategories] = useState<CategoryDTO[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('All')
-  const [selectedStatus, setSelectedStatus] = useState('all')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
+  const [isFetching, setIsFetching] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
 
-  const filteredProducts = mockProducts.filter((product) => {
-    const matchesSearch =
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.sku.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory =
-      selectedCategory === 'All' || product.category === selectedCategory
-    const matchesStatus =
-      selectedStatus === 'all' || product.status === selectedStatus
+  // Modal states
+  const [addModalOpen, setAddModalOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [viewModalOpen, setViewModalOpen] = useState(false)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState<ProductDTO | null>(null)
 
-    return matchesSearch && matchesCategory && matchesStatus
-  })
+  // Load products + categories from the backend
+  useEffect(() => {
+    let active = true
+    Promise.all([getProducts(), getCategories()])
+      .then(([productData, categoryData]) => {
+        if (!active) return
+        setProducts(productData)
+        setCategories(categoryData)
+      })
+      .catch((error) => {
+        console.error('Failed to load products', error)
+        alert((error as Error).message || 'Failed to load products')
+      })
+      .finally(() => {
+        if (active) setIsFetching(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
-  const itemsPerPage = 8
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
-  const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+  const categoryOptions = useMemo(
+    () => categories.map((c) => ({ id: c.id, name: c.name })),
+    [categories]
   )
 
-  const formatPrice = (amount) => {
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      const matchesSearch =
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.sku.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesCategory =
+        categoryFilter === 'all' || product.categoryId === categoryFilter
+      const matchesStatus =
+        statusFilter === 'all' || product.status === statusFilter
+
+      return matchesSearch && matchesCategory && matchesStatus
+    })
+  }, [products, searchTerm, categoryFilter, statusFilter])
+
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE)
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  )
+
+  const formatPrice = (amount: number) => {
     return '৳' + new Intl.NumberFormat('en-BD', {
       minimumFractionDigits: 0,
     }).format(amount)
+  }
+
+  // Handle Add Product
+  const handleAddProduct = async (data: ProductInput) => {
+    setIsSaving(true)
+    try {
+      const created = await createProduct(data)
+      setProducts((prev) => [created, ...prev])
+      setAddModalOpen(false)
+    } catch (error) {
+      console.error('Failed to add product', error)
+      alert((error as Error).message || 'Failed to add product')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Handle Edit Product
+  const handleEditProduct = async (data: ProductInput) => {
+    if (!selectedProduct) return
+    setIsSaving(true)
+    try {
+      const updated = await updateProduct(selectedProduct.id, data)
+      setProducts((prev) =>
+        prev.map((p) => (p.id === updated.id ? updated : p))
+      )
+      setEditModalOpen(false)
+      setSelectedProduct(null)
+    } catch (error) {
+      console.error('Failed to update product', error)
+      alert((error as Error).message || 'Failed to update product')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Handle Delete Product
+  const handleDeleteProduct = async () => {
+    if (!selectedProduct) return
+    setIsSaving(true)
+    try {
+      await deleteProduct(selectedProduct.id)
+      setProducts((prev) => prev.filter((p) => p.id !== selectedProduct.id))
+      setDeleteModalOpen(false)
+      setSelectedProduct(null)
+    } catch (error) {
+      console.error('Failed to delete product', error)
+      alert((error as Error).message || 'Failed to delete product')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleViewDetails = (product: ProductDTO) => {
+    setSelectedProduct(product)
+    setViewModalOpen(true)
+  }
+
+  const handleEdit = (product: ProductDTO) => {
+    setSelectedProduct(product)
+    setEditModalOpen(true)
+  }
+
+  const handleDelete = (product: ProductDTO) => {
+    setSelectedProduct(product)
+    setDeleteModalOpen(true)
   }
 
   return (
@@ -170,10 +201,10 @@ export default function ProductsPage() {
           <div>
             <h1 className="text-3xl font-bold text-foreground">Products</h1>
             <p className="text-sm text-muted-foreground">
-              Manage your product catalog
+              Manage your product catalog ({filteredProducts.length})
             </p>
           </div>
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={() => setAddModalOpen(true)}>
             <Plus className="size-4" />
             Add Product
           </Button>
@@ -207,9 +238,9 @@ export default function ProductsPage() {
                 Category
               </label>
               <Select
-                value={selectedCategory}
+                value={categoryFilter}
                 onValueChange={(value) => {
-                  setSelectedCategory(value)
+                  setCategoryFilter(value as string)
                   setCurrentPage(1)
                 }}
               >
@@ -217,9 +248,10 @@ export default function ProductsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
                   {categories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -232,9 +264,9 @@ export default function ProductsPage() {
                 Status
               </label>
               <Select
-                value={selectedStatus}
+                value={statusFilter}
                 onValueChange={(value) => {
-                  setSelectedStatus(value)
+                  setStatusFilter(value as string)
                   setCurrentPage(1)
                 }}
               >
@@ -243,22 +275,22 @@ export default function ProductsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="ACTIVE">Active</SelectItem>
+                  <SelectItem value="INACTIVE">Inactive</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
           {/* Clear Filters */}
-          {(searchTerm || selectedCategory !== 'All' || selectedStatus !== 'all') && (
+          {(searchTerm || categoryFilter !== 'all' || statusFilter !== 'all') && (
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
                 setSearchTerm('')
-                setSelectedCategory('All')
-                setSelectedStatus('all')
+                setCategoryFilter('all')
+                setStatusFilter('all')
                 setCurrentPage(1)
               }}
               className="mt-4"
@@ -270,21 +302,47 @@ export default function ProductsPage() {
 
         {/* Products Table */}
         <Card className="overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product Name</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Unit</TableHead>
-                <TableHead className="text-right">Price</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedProducts.length > 0 ? (
-                paginatedProducts.map((product) => (
+          {isFetching ? (
+            <div className="flex h-96 items-center justify-center">
+              <div className="text-center">
+                <div className="mb-4 inline-block">
+                  <div className="size-12 animate-spin rounded-full border-4 border-border border-t-primary" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Loading products...
+                </p>
+              </div>
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="flex h-96 items-center justify-center">
+              <div className="text-center">
+                <Package className="mx-auto mb-4 size-12 text-muted-foreground opacity-50" />
+                <h3 className="text-lg font-semibold text-foreground">
+                  No products found
+                </h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {searchTerm || categoryFilter !== 'all' || statusFilter !== 'all'
+                    ? 'Try adjusting your filters or search query'
+                    : 'Get started by adding your first product'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product Name</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Unit</TableHead>
+                  <TableHead className="text-right">Purchase</TableHead>
+                  <TableHead className="text-right">Selling</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedProducts.map((product) => (
                   <TableRow key={product.id}>
                     <TableCell className="font-medium">
                       {product.name}
@@ -292,20 +350,21 @@ export default function ProductsPage() {
                     <TableCell className="font-mono text-sm">
                       {product.sku}
                     </TableCell>
-                    <TableCell>{product.category}</TableCell>
-                    <TableCell>{product.unit}</TableCell>
+                    <TableCell>{product.categoryName}</TableCell>
+                    <TableCell>{unitLabel(product.unit)}</TableCell>
+                    <TableCell className="text-right text-sm">
+                      {formatPrice(product.purchasePrice)}
+                    </TableCell>
                     <TableCell className="text-right font-semibold">
-                      {formatPrice(product.price)}
+                      {formatPrice(product.sellingPrice)}
                     </TableCell>
                     <TableCell>
                       <Badge
                         variant={
-                          product.status === 'active'
-                            ? 'default'
-                            : 'secondary'
+                          product.status === 'ACTIVE' ? 'default' : 'secondary'
                         }
                       >
-                        {product.status === 'active' ? 'Active' : 'Inactive'}
+                        {product.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -316,15 +375,24 @@ export default function ProductsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem className="gap-2">
+                          <DropdownMenuItem
+                            className="gap-2 cursor-pointer"
+                            onClick={() => handleViewDetails(product)}
+                          >
                             <Eye className="size-4" />
                             View
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2">
+                          <DropdownMenuItem
+                            className="gap-2 cursor-pointer"
+                            onClick={() => handleEdit(product)}
+                          >
                             <Edit2 className="size-4" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2 text-red-600">
+                          <DropdownMenuItem
+                            className="gap-2 cursor-pointer text-destructive focus:text-destructive"
+                            onClick={() => handleDelete(product)}
+                          >
                             <Trash2 className="size-4" />
                             Delete
                           </DropdownMenuItem>
@@ -332,24 +400,18 @@ export default function ProductsPage() {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center">
-                    <p className="text-muted-foreground">No products found</p>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </Card>
 
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredProducts.length)} to{' '}
-              {Math.min(currentPage * itemsPerPage, filteredProducts.length)} of{' '}
+              Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filteredProducts.length)} to{' '}
+              {Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length)} of{' '}
               {filteredProducts.length} products
             </p>
             <div className="flex gap-2">
@@ -382,6 +444,38 @@ export default function ProductsPage() {
             </div>
           </div>
         )}
+
+        {/* Modals */}
+        <AddProductModal
+          open={addModalOpen}
+          onOpenChange={setAddModalOpen}
+          categories={categoryOptions}
+          onSubmit={handleAddProduct}
+          isLoading={isSaving}
+        />
+
+        <EditProductModal
+          open={editModalOpen}
+          onOpenChange={setEditModalOpen}
+          product={selectedProduct}
+          categories={categoryOptions}
+          onSubmit={handleEditProduct}
+          isLoading={isSaving}
+        />
+
+        <ViewProductModal
+          open={viewModalOpen}
+          onOpenChange={setViewModalOpen}
+          product={selectedProduct}
+        />
+
+        <DeleteProductModal
+          open={deleteModalOpen}
+          onOpenChange={setDeleteModalOpen}
+          product={selectedProduct}
+          onConfirm={handleDeleteProduct}
+          isLoading={isSaving}
+        />
       </div>
     </DashboardLayout>
   )

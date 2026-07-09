@@ -1,11 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -33,111 +40,129 @@ import {
   Eye,
   Edit2,
   Trash2,
+  Filter,
+  Tag,
 } from 'lucide-react'
-
-const mockCategories = [
-  {
-    id: 1,
-    name: 'Electronics',
-    description: 'Computer hardware and electronic devices',
-    productCount: 4,
-    status: 'active',
-    createdDate: '2024-01-15',
-  },
-  {
-    id: 2,
-    name: 'Furniture',
-    description: 'Office and home furniture',
-    productCount: 3,
-    status: 'active',
-    createdDate: '2024-01-15',
-  },
-  {
-    id: 3,
-    name: 'Office Supplies',
-    description: 'Stationery and office materials',
-    productCount: 1,
-    status: 'active',
-    createdDate: '2024-01-16',
-  },
-]
-
-interface Category {
-  id: string | number
-  name: string
-  description: string
-  productCount: number
-  status: string
-  createdDate: string
-}
+import {
+  getCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  type CategoryDTO,
+  type CategoryInput,
+} from '@/app/actions/category.actions'
 
 export default function CategoriesPage() {
+  const [categories, setCategories] = useState<CategoryDTO[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [categories, setCategories] = useState<Category[]>(mockCategories as Category[])
-  const [isLoading, setIsLoading] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [isFetching, setIsFetching] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
 
   // Modal states
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [viewModalOpen, setViewModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState<CategoryDTO | null>(null)
 
-  const filteredCategories = categories.filter((cat) =>
-    cat.name.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // Load categories from the backend
+  useEffect(() => {
+    let active = true
+    getCategories()
+      .then((data) => {
+        if (active) setCategories(data)
+      })
+      .catch((error) => {
+        console.error('Failed to load categories', error)
+        alert((error as Error).message || 'Failed to load categories')
+      })
+      .finally(() => {
+        if (active) setIsFetching(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const filteredCategories = useMemo(() => {
+    return categories.filter((cat) => {
+      const matchesSearch =
+        cat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        cat.description.toLowerCase().includes(searchTerm.toLowerCase())
+
+      const matchesStatus =
+        statusFilter === 'all' || cat.status === statusFilter
+
+      return matchesSearch && matchesStatus
+    })
+  }, [categories, searchTerm, statusFilter])
 
   // Handle Add Category
-  const handleAddCategory = (data: Category) => {
-    setIsLoading(true)
-    setTimeout(() => {
-      setCategories([...categories, data])
-      setIsLoading(false)
+  const handleAddCategory = async (data: CategoryInput) => {
+    setIsSaving(true)
+    try {
+      const created = await createCategory(data)
+      setCategories((prev) => [created, ...prev])
       setAddModalOpen(false)
-    }, 500)
+    } catch (error) {
+      console.error('Failed to add category', error)
+      alert((error as Error).message || 'Failed to add category')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   // Handle Edit Category
-  const handleEditCategory = (data: Category) => {
-    setIsLoading(true)
-    setTimeout(() => {
-      setCategories(
-        categories.map((c) =>
-          c.id === data.id ? data : c
-        )
+  const handleEditCategory = async (data: CategoryInput) => {
+    if (!selectedCategory) return
+    setIsSaving(true)
+    try {
+      const updated = await updateCategory(selectedCategory.id, data)
+      setCategories((prev) =>
+        prev.map((c) => (c.id === updated.id ? updated : c))
       )
-      setIsLoading(false)
       setEditModalOpen(false)
       setSelectedCategory(null)
-    }, 500)
+    } catch (error) {
+      console.error('Failed to update category', error)
+      alert((error as Error).message || 'Failed to update category')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   // Handle Delete Category
-  const handleDeleteCategory = () => {
+  const handleDeleteCategory = async () => {
     if (!selectedCategory) return
-    setIsLoading(true)
-    setTimeout(() => {
-      setCategories(categories.filter((c) => c.id !== selectedCategory.id))
-      setIsLoading(false)
+    setIsSaving(true)
+    try {
+      await deleteCategory(selectedCategory.id)
+      setCategories((prev) => prev.filter((c) => c.id !== selectedCategory.id))
       setDeleteModalOpen(false)
       setSelectedCategory(null)
-    }, 500)
+    } catch (error) {
+      console.error('Failed to delete category', error)
+      alert((error as Error).message || 'Failed to delete category')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   // Handle View Details
-  const handleViewDetails = (category: Category) => {
+  const handleViewDetails = (category: CategoryDTO) => {
     setSelectedCategory(category)
     setViewModalOpen(true)
   }
 
   // Handle Edit
-  const handleEdit = (category: Category) => {
+  const handleEdit = (category: CategoryDTO) => {
     setSelectedCategory(category)
     setEditModalOpen(true)
   }
 
   // Handle Delete
-  const handleDelete = (category: Category) => {
+  const handleDelete = (category: CategoryDTO) => {
     setSelectedCategory(category)
     setDeleteModalOpen(true)
   }
@@ -152,7 +177,7 @@ export default function CategoriesPage() {
               Product Categories
             </h1>
             <p className="text-sm text-muted-foreground">
-              Manage product categories and organize your inventory
+              Manage product categories and organize your inventory ({filteredCategories.length})
             </p>
           </div>
           <Button className="gap-2" onClick={() => setAddModalOpen(true)}>
@@ -161,50 +186,114 @@ export default function CategoriesPage() {
           </Button>
         </div>
 
-        {/* Search */}
-        <Card className="p-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
-            <Input
-              placeholder="Search categories..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+        {/* Filters */}
+        <Card className="p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:gap-4">
+            <div className="flex-1">
+              <label className="mb-2 block text-sm font-medium text-foreground">
+                Search Category
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name or description..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            <div className="w-full md:w-48">
+              <label className="mb-2 block text-sm font-medium text-foreground">
+                Status
+              </label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="ACTIVE">Active</SelectItem>
+                  <SelectItem value="INACTIVE">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearchTerm('')
+                setStatusFilter('all')
+              }}
+              className="gap-2"
+            >
+              <Filter className="size-4" />
+              Clear
+            </Button>
           </div>
         </Card>
 
         {/* Categories Table */}
         <Card className="overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Category Name</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Total Products</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created Date</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredCategories.length > 0 ? (
-                filteredCategories.map((category) => (
+          {isFetching ? (
+            <div className="flex h-96 items-center justify-center">
+              <div className="text-center">
+                <div className="mb-4 inline-block">
+                  <div className="size-12 animate-spin rounded-full border-4 border-border border-t-primary" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Loading categories...
+                </p>
+              </div>
+            </div>
+          ) : filteredCategories.length === 0 ? (
+            <div className="flex h-96 items-center justify-center">
+              <div className="text-center">
+                <Tag className="mx-auto mb-4 size-12 text-muted-foreground opacity-50" />
+                <h3 className="text-lg font-semibold text-foreground">
+                  No categories found
+                </h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {searchTerm || statusFilter !== 'all'
+                    ? 'Try adjusting your filters or search query'
+                    : 'Get started by adding your first category'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Category Name</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Total Products</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCategories.map((category) => (
                   <TableRow key={category.id}>
                     <TableCell className="font-medium">
                       {category.name}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {category.description}
+                      {category.description || '—'}
                     </TableCell>
                     <TableCell>{category.productCount}</TableCell>
                     <TableCell>
-                      <Badge variant="default">
-                        {category.status === 'active' ? 'Active' : 'Inactive'}
+                      <Badge
+                        variant={
+                          category.status === 'ACTIVE' ? 'default' : 'secondary'
+                        }
+                      >
+                        {category.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm">
-                      {new Date(category.createdDate).toLocaleDateString()}
+                      {new Date(category.createdAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -239,49 +328,41 @@ export default function CategoriesPage() {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center">
-                    <p className="text-muted-foreground">
-                      No categories found
-                    </p>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </Card>
 
-      {/* Modals */}
-      <AddCategoryModal
-        open={addModalOpen}
-        onOpenChange={setAddModalOpen}
-        onSubmit={handleAddCategory}
-        isLoading={isLoading}
-      />
+        {/* Modals */}
+        <AddCategoryModal
+          open={addModalOpen}
+          onOpenChange={setAddModalOpen}
+          onSubmit={handleAddCategory}
+          isLoading={isSaving}
+        />
 
-      <EditCategoryModal
-        open={editModalOpen}
-        onOpenChange={setEditModalOpen}
-        category={selectedCategory}
-        onSubmit={handleEditCategory}
-        isLoading={isLoading}
-      />
+        <EditCategoryModal
+          open={editModalOpen}
+          onOpenChange={setEditModalOpen}
+          category={selectedCategory}
+          onSubmit={handleEditCategory}
+          isLoading={isSaving}
+        />
 
-      <ViewCategoryModal
-        open={viewModalOpen}
-        onOpenChange={setViewModalOpen}
-        category={selectedCategory}
-      />
+        <ViewCategoryModal
+          open={viewModalOpen}
+          onOpenChange={setViewModalOpen}
+          category={selectedCategory}
+        />
 
-      <DeleteCategoryModal
-        open={deleteModalOpen}
-        onOpenChange={setDeleteModalOpen}
-        category={selectedCategory}
-        onConfirm={handleDeleteCategory}
-        isLoading={isLoading}
-      />
+        <DeleteCategoryModal
+          open={deleteModalOpen}
+          onOpenChange={setDeleteModalOpen}
+          category={selectedCategory}
+          onConfirm={handleDeleteCategory}
+          isLoading={isSaving}
+        />
       </div>
     </DashboardLayout>
   )

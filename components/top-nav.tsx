@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Bell,
   Search,
   ChevronDown,
   LogOut,
@@ -10,6 +9,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
+import { NotificationBell } from "@/components/notification-bell";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -96,11 +96,7 @@ export function TopNav({
         {/* Right Section */}
         <div className="flex items-center gap-2">
           {/* Notification */}
-          <button className="relative inline-flex size-10 items-center justify-center rounded-lg hover:bg-secondary transition-colors">
-            <Bell className="size-5 text-foreground" />
-
-            <span className="absolute right-2 top-2 size-2 rounded-full bg-destructive" />
-          </button>
+          <NotificationBell />
 
           {/* Divider */}
           <div className="hidden h-6 w-px bg-border sm:block" />

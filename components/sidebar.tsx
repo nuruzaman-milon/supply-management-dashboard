@@ -13,7 +13,7 @@ import {
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 interface NavItem {
   icon: React.ReactNode;
@@ -77,6 +77,16 @@ interface SidebarProps {
 
 export function Sidebar({ open, onOpenChange, collapsed = false }: SidebarProps) {
   const router = useRouter();
+  const pathname = usePathname();
+
+  // Pick the most specific matching nav item so /products/categories
+  // highlights "Categories" and not also "Products".
+  const activeHref = navItems
+    .filter(
+      (item) => pathname === item.href || pathname.startsWith(item.href + "/"),
+    )
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
   return (
     <>
       {/* Mobile Overlay */}
@@ -126,22 +136,30 @@ export function Sidebar({ open, onOpenChange, collapsed = false }: SidebarProps)
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-5">
           <div className="space-y-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                title={collapsed ? item.label : undefined}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-secondary",
-                  collapsed && "md:justify-center md:px-2",
-                )}
-              >
-                <span className="shrink-0">{item.icon}</span>
-                <span className={cn("whitespace-nowrap", collapsed && "md:hidden")}>
-                  {item.label}
-                </span>
-              </Link>
-            ))}
+            {navItems.map((item) => {
+              const isActive = item.href === activeHref;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  title={collapsed ? item.label : undefined}
+                  aria-current={isActive ? "page" : undefined}
+                  onClick={() => onOpenChange(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "text-foreground hover:bg-secondary",
+                    collapsed && "md:justify-center md:px-2",
+                  )}
+                >
+                  <span className="shrink-0">{item.icon}</span>
+                  <span className={cn("whitespace-nowrap", collapsed && "md:hidden")}>
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         </nav>
 

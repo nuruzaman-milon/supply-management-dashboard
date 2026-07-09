@@ -1,49 +1,37 @@
 'use client'
 
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 import {
   GenericAddModal,
   GenericEditModal,
   GenericViewModal,
   GenericDeleteModal,
 } from '@/components/generic-modals'
-
-interface Category {
-  id: string | number
-  name: string
-  description: string
-  productCount: number
-  status: string
-  createdDate: string
-}
+import type { CategoryDTO, CategoryInput } from '@/app/actions/category.actions'
 
 interface CategoryFormProps {
-  category?: Category
-  onSubmit: (data: Category) => void
+  category?: CategoryDTO
+  onSubmit: (data: CategoryInput) => void
   isLoading?: boolean
 }
 
 function CategoryForm({ category, onSubmit, isLoading = false }: CategoryFormProps) {
+  const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE'>(
+    category?.status || 'ACTIVE'
+  )
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
-    const data: Category = {
-      id: category?.id || Date.now(),
+    const data: CategoryInput = {
       name: formData.get('name') as string,
       description: formData.get('description') as string,
-      productCount: category?.productCount || 0,
-      status: formData.get('status') as string,
-      createdDate: category?.createdDate || new Date().toISOString().split('T')[0],
+      status,
     }
     onSubmit(data)
   }
@@ -67,7 +55,7 @@ function CategoryForm({ category, onSubmit, isLoading = false }: CategoryFormPro
 
         <div className="space-y-2.5 sm:col-span-2">
           <Label htmlFor="description" className="text-sm font-semibold text-foreground">
-            Description <span className="text-destructive">*</span>
+            Description
           </Label>
           <Textarea
             id="description"
@@ -75,23 +63,47 @@ function CategoryForm({ category, onSubmit, isLoading = false }: CategoryFormPro
             placeholder="Enter category description"
             defaultValue={category?.description || ''}
             className="border-2 border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 min-h-24"
-            required
           />
         </div>
 
         <div className="space-y-2.5 sm:col-span-2">
-          <Label htmlFor="status" className="text-sm font-semibold text-foreground">
+          <Label className="text-sm font-semibold text-foreground">
             Status <span className="text-destructive">*</span>
           </Label>
-          <Select name="status" defaultValue={category?.status || 'active'}>
-            <SelectTrigger className="border-2 border-border bg-card text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
+          <div
+            role="radiogroup"
+            aria-label="Category Status"
+            className="grid grid-cols-2 gap-1 rounded-lg border-2 border-border bg-card p-1"
+          >
+            {(['ACTIVE', 'INACTIVE'] as const).map((value) => {
+              const selected = status === value
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => setStatus(value)}
+                  className={cn(
+                    'flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                    selected
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:bg-secondary'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'size-2 rounded-full',
+                      value === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-400',
+                      selected && value === 'ACTIVE' && 'bg-green-300',
+                      selected && value === 'INACTIVE' && 'bg-gray-200'
+                    )}
+                  />
+                  {value === 'ACTIVE' ? 'Active' : 'Inactive'}
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 
@@ -110,28 +122,28 @@ function CategoryForm({ category, onSubmit, isLoading = false }: CategoryFormPro
 interface AddCategoryModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSubmit: (data: Category) => void
+  onSubmit: (data: CategoryInput) => void
   isLoading?: boolean
 }
 
 interface EditCategoryModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  category: Category | null
-  onSubmit: (data: Category) => void
+  category: CategoryDTO | null
+  onSubmit: (data: CategoryInput) => void
   isLoading?: boolean
 }
 
 interface ViewCategoryModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  category: Category | null
+  category: CategoryDTO | null
 }
 
 interface DeleteCategoryModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  category: Category | null
+  category: CategoryDTO | null
   onConfirm: () => void
   isLoading?: boolean
 }
@@ -206,15 +218,15 @@ export function ViewCategoryModal({
               <p className="text-sm font-medium text-muted-foreground mb-1">
                 Description
               </p>
-              <p className="text-base text-foreground">{category.description}</p>
+              <p className="text-base text-foreground">{category.description || '—'}</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-1">
                   Status
                 </p>
-                <p className="text-base font-semibold text-foreground capitalize">
-                  {category.status}
+                <p className="text-base font-semibold text-foreground">
+                  {category.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                 </p>
               </div>
               <div>
@@ -231,7 +243,9 @@ export function ViewCategoryModal({
                 Created Date
               </p>
               <p className="text-base font-semibold text-foreground">
-                {new Date(category.createdDate).toLocaleDateString()}
+                {category.createdAt
+                  ? new Date(category.createdAt).toLocaleDateString()
+                  : 'N/A'}
               </p>
             </div>
           </div>
